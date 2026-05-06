@@ -9,6 +9,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Package files
+package.json
+package-lock.json
+opencode.json
+
 # Production builds
 build/
 dist/
