@@ -1,73 +1,121 @@
 import { Server } from '@/types'
 import { Button } from './ui/button'
-import { Loader2 } from 'lucide-react'
+import { StatusBadge } from './StatusBadge'
+import { Loader2, MoreHorizontal, Trash2, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
 
 interface ServerTableProps {
   servers: Server[]
   onSync: (id: string) => void
   syncingId: string | null
+  onDelete: (id: string) => void
 }
 
-export function ServerTable({ servers, onSync, syncingId }: ServerTableProps) {
+export function ServerTable({ servers, onSync, syncingId, onDelete }: ServerTableProps) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
   return (
-    <div className="rounded-md border">
+    <div className="rounded-lg border border-border/50 bg-card">
       <table className="w-full">
-        <thead className="bg-muted">
-          <tr>
-            <th className="p-4 text-left font-medium">Назначение</th>
-            <th className="p-4 text-left font-medium">Страна</th>
-            <th className="p-4 text-left font-medium">Хостинг</th>
-            <th className="p-4 text-left font-medium">IP</th>
-            <th className="p-4 text-left font-medium">Статус</th>
-            <th className="p-4 text-left font-medium">Стоимость</th>
-            <th className="p-4 text-left font-medium">След. оплата</th>
-            <th className="p-4 text-left font-medium">Действия</th>
+        <thead>
+          <tr className="border-b border-border/50">
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Сервер
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              IP
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Статус
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Стоимость
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Оплата
+            </th>
+            <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Действия
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border/30">
           {servers.map((server) => (
-            <tr key={server.id} className="border-t">
-              <td className="p-4">{server.purpose}</td>
-              <td className="p-4">{server.country}</td>
-              <td className="p-4">{server.hosting}</td>
-              <td className="p-4 font-mono text-sm">{server.ip}</td>
-              <td className="p-4">
-                <span
-                  className={`inline-flex rounded-full px-2 py-1 text-xs ${
-                    server.status === 'active'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {server.status === 'active' ? 'Активен' : 'Неактивен'}
-                </span>
+            <tr
+              key={server.id}
+              className="group transition-colors hover:bg-accent/20"
+            >
+              <td className="px-4 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-foreground">{server.purpose}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {server.hosting} • {server.country}
+                  </span>
+                </div>
               </td>
-              <td className="p-4">
+              <td className="px-4 py-3">
+                <code className="rounded bg-muted/50 px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
+                  {server.ip}
+                </code>
+              </td>
+              <td className="px-4 py-3">
+                <StatusBadge status={server.status as 'active' | 'inactive'} />
+              </td>
+              <td className="px-4 py-3 text-sm">
                 {server.cost} {server.currency}
               </td>
-              <td className="p-4">{server.next_payment || '-'}</td>
-              <td className="p-4">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSync(server.id)}
-                  disabled={syncingId === server.id}
-                >
-                  {syncingId === server.id ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Синхр...
-                    </>
-                  ) : (
-                    'Синхр'
-                  )}
-                </Button>
+              <td className="px-4 py-3 text-sm text-muted-foreground">
+                {server.next_payment || '—'}
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0"
+                    onClick={() => onSync(server.id)}
+                    disabled={syncingId === server.id}
+                  >
+                    {syncingId === server.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+
+                  <div className="relative">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => setOpenMenuId(openMenuId === server.id ? null : server.id)}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {openMenuId === server.id && (
+                      <div className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border/50 bg-card p-1 shadow-lg">
+                        <button
+                          onClick={() => {
+                            onDelete(server.id)
+                            setOpenMenuId(null)
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Удалить
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </td>
             </tr>
           ))}
+
           {servers.length === 0 && (
             <tr>
-              <td colSpan={8} className="p-8 text-center text-muted-foreground">
+              <td colSpan={6} className="py-12 text-center text-muted-foreground">
                 Нет серверов. Добавьте первый сервер.
               </td>
             </tr>

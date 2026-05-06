@@ -47,3 +47,6 @@ logs/*.log
 # Temporary files
 tmp/
 temp/
+
+# Instructions (user-only)
+instruction/

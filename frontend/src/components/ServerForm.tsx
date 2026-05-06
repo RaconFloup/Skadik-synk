@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
+import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, HOSTING_SUGGESTIONS } from '@/types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'

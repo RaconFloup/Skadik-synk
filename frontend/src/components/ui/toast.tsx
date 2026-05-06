@@ -21,8 +21,8 @@ export function Toast({ message, type, onClose }: ToastProps) {
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 ${
-        visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+      className={`fixed bottom-4 left-4 z-[100] flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 ${
+        visible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
       } ${
         type === 'success'
           ? 'border-green-500/20 bg-green-500/10 text-green-400'
