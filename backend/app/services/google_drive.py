@@ -1,8 +1,5 @@
-from google.oauth2.credentials import Credentials
-from googleapiclient import discovery as googleapiclient
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaInMemoryUpload
-from typing import Optional
+import httpx
+import json
 from app.config import settings
 
 COUNTRY_FLAGS = {
@@ -14,16 +11,6 @@ COUNTRY_FLAGS = {
     "🇫🇷 France": "🇫🇷 France",
     "🇬🇧 UK": "🇬🇧 UK",
 }
-
-
-def get_credentials():
-    return Credentials(
-        token=None,
-        refresh_token=settings.GOOGLE_REFRESH_TOKEN,
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token"
-    )
 
 
 def generate_md_content(server: dict) -> str:
@@ -112,72 +99,97 @@ ssh {ssh_username}@{ip}
 
 async def create_google_doc(server: dict) -> dict:
     try:
-        creds = get_credentials()
-        service = googleapiclient.build('drive', 'v3', credentials=creds)
-
-        filename = f"{server.get('country', '')} {server.get('provider', 'Unknown')}.md"
+        purpose = server.get("purpose", "Unknown")
+        country_flag = COUNTRY_FLAGS.get(server.get("country", ""), server.get("country", ""))
+        hosting = server.get("hosting", "Unknown")
+        filename = f"{purpose} [{country_flag}] {hosting}.md"
+        
         content = generate_md_content(server)
-
-        file_metadata = {
-            'name': filename,
-            'mimeType': 'text/markdown',
-            'parents': [settings.GOOGLE_FOLDER_ID]
-        }
-
-        media = MediaInMemoryUpload(
-            content.encode('utf-8'),
-            mimetype='text/markdown'
-        )
-
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id'
-        ).execute()
-
-        return {"success": True, "file_id": file.get('id')}
-
-    except HttpError as error:
-        return {"success": False, "error": str(error)}
+        
+        payload = json.dumps({
+            "action": "create",
+            "folderId": settings.GOOGLE_FOLDER_ID,
+            "name": filename,
+            "content": content
+        }).encode('utf-8')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                settings.GOOGLE_SCRIPT_URL,
+                content=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(payload))
+                },
+                follow_redirects=True,
+                timeout=30.0
+            )
+            
+            result = response.json()
+            
+            if result.get("success"):
+                return {"success": True, "file_id": result.get("fileId")}
+            return {"success": False, "error": result.get("error", "Unknown error")}
+            
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 async def update_google_doc(file_id: str, server: dict) -> dict:
     try:
-        creds = get_credentials()
-        service = googleapiclient.build('drive', 'v3', credentials=creds)
-
         content = generate_md_content(server)
-
-        media = MediaInMemoryUpload(
-            content.encode('utf-8'),
-            mimetype='text/markdown'
-        )
-
-        service.files().update(
-            fileId=file_id,
-            media_body=media
-        ).execute()
-
-        return {"success": True}
-
-    except HttpError as error:
-        return {"success": False, "error": str(error)}
+        purpose = server.get("purpose", "Unknown")
+        country_flag = COUNTRY_FLAGS.get(server.get("country", ""), server.get("country", ""))
+        hosting = server.get("hosting", "Unknown")
+        filename = f"{purpose} [{country_flag}] {hosting}.md"
+        
+        payload = json.dumps({
+            "action": "update",
+            "fileId": file_id,
+            "name": filename,
+            "content": content
+        }).encode('utf-8')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                settings.GOOGLE_SCRIPT_URL,
+                content=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(payload))
+                },
+                follow_redirects=True,
+                timeout=30.0
+            )
+            
+            result = response.json()
+            return {"success": result.get("success", False), "error": result.get("error")}
+            
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 async def delete_google_doc(file_id: str) -> dict:
     try:
-        creds = get_credentials()
-        service = googleapiclient.build('drive', 'v3', credentials=creds)
-
-        service.files().delete(fileId=file_id).execute()
-
-        return {"success": True}
-
-    except HttpError as error:
-        return {"success": False, "error": str(error)}
+        payload = json.dumps({
+            "action": "delete",
+            "fileId": file_id
+        }).encode('utf-8')
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                settings.GOOGLE_SCRIPT_URL,
+                content=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(payload))
+                },
+                follow_redirects=True,
+                timeout=30.0
+            )
+            
+            result = response.json()
+            return {"success": result.get("success", False), "error": result.get("error")}
+            
     except Exception as e:
         return {"success": False, "error": str(e)}

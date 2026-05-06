@@ -12,9 +12,7 @@ class Settings(BaseSettings):
     ZUBLO_URL: str = "https://zublonffdih7e.skadik.ru"
     ZUBLO_API_KEY: str = ""
 
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REFRESH_TOKEN: str = ""
+    GOOGLE_SCRIPT_URL: str = ""
     GOOGLE_FOLDER_ID: str = ""
 
     class Config:

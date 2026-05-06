@@ -44,7 +44,7 @@ async def sync_server_to_services(server: Server):
         except:
             pass
 
-    if server.next_payment and not server.google_doc_id:
+    if not server.google_doc_id:
         try:
             gd_result = await google_drive.create_google_doc({
                 "purpose": server.purpose,
@@ -55,7 +55,7 @@ async def sync_server_to_services(server: Server):
                 "ssh_username": server.ssh_username,
                 "ssh_password": server.ssh_password,
                 "traffic": server.traffic,
-                "cost": str(server.cost),
+                "cost": str(server.cost) if server.cost else "",
                 "currency": server.currency,
                 "cycle": server.cycle,
                 "created": server.created.strftime("%Y-%m-%d") if server.created else "",
@@ -65,8 +65,10 @@ async def sync_server_to_services(server: Server):
             })
             if gd_result.get("success"):
                 server.google_doc_id = gd_result.get("file_id")
-        except:
-            pass
+            else:
+                print(f"Google Drive error: {gd_result.get('error')}")
+        except Exception as e:
+            print(f"Google Drive exception: {e}")
 
 
 @router.get("", response_model=List[ServerResponse])
