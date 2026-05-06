@@ -1,15 +1,17 @@
 import { Server } from '@/types'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
+import { Loader2 } from 'lucide-react'
 
 interface ServerCardProps {
   server: Server
   onSync: (id: string) => void
   onEdit?: (server: Server) => void
   onDelete?: (id: string) => void
+  syncing?: boolean
 }
 
-export function ServerCard({ server, onSync, onEdit, onDelete }: ServerCardProps) {
+export function ServerCard({ server, onSync, onEdit, onDelete, syncing }: ServerCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -41,8 +43,15 @@ export function ServerCard({ server, onSync, onEdit, onDelete }: ServerCardProps
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button size="sm" onClick={() => onSync(server.id)}>
-            Синхронизация
+          <Button size="sm" onClick={() => onSync(server.id)} disabled={syncing}>
+            {syncing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Синхронизация...
+              </>
+            ) : (
+              'Синхронизация'
+            )}
           </Button>
           {onEdit && (
             <Button size="sm" variant="outline" onClick={() => onEdit(server)}>

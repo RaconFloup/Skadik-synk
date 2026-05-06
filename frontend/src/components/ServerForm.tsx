@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
+import { Loader2 } from 'lucide-react'
 
 interface ServerFormProps {
   onSubmit: (data: ServerCreate) => void
@@ -52,6 +53,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           <Select
             value={formData.purpose}
             onValueChange={(v) => updateField('purpose', v)}
+            disabled={loading}
           >
             <SelectTrigger>
               <SelectValue />
@@ -70,6 +72,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           <Select
             value={formData.country}
             onValueChange={(v) => updateField('country', v)}
+            disabled={loading}
           >
             <SelectTrigger>
               <SelectValue />
@@ -94,6 +97,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             placeholder="Введите название или выберите"
             list="hosting-suggestions"
             required
+            disabled={loading}
           />
           <datalist id="hosting-suggestions">
             {HOSTING_SUGGESTIONS.map((h) => (
@@ -108,6 +112,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             onChange={(e) => updateField('ip', e.target.value)}
             placeholder="185.23.114.77"
             required
+            disabled={loading}
           />
         </div>
       </div>
@@ -120,6 +125,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             value={formData.ssh_port}
             onChange={(e) => updateField('ssh_port', parseInt(e.target.value))}
             placeholder="22"
+            disabled={loading}
           />
         </div>
         <div>
@@ -128,6 +134,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             value={formData.ssh_username}
             onChange={(e) => updateField('ssh_username', e.target.value)}
             placeholder="root"
+            disabled={loading}
           />
         </div>
       </div>
@@ -139,6 +146,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           value={formData.ssh_password}
           onChange={(e) => updateField('ssh_password', e.target.value)}
           placeholder="Пароль"
+          disabled={loading}
         />
       </div>
 
@@ -151,6 +159,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             value={formData.cost || ''}
             onChange={(e) => updateField('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
             placeholder="6.99"
+            disabled={loading}
           />
         </div>
         <div>
@@ -158,6 +167,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           <Select
             value={formData.currency}
             onValueChange={(v) => updateField('currency', v)}
+            disabled={loading}
           >
             <SelectTrigger>
               <SelectValue />
@@ -177,6 +187,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             value={formData.traffic}
             onChange={(e) => updateField('traffic', e.target.value)}
             placeholder="Безлимит"
+            disabled={loading}
           />
         </div>
       </div>
@@ -188,6 +199,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             type="date"
             value={formData.created}
             onChange={(e) => updateField('created', e.target.value)}
+            disabled={loading}
           />
         </div>
         <div>
@@ -196,6 +208,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             type="date"
             value={formData.next_payment}
             onChange={(e) => updateField('next_payment', e.target.value)}
+            disabled={loading}
           />
         </div>
       </div>
@@ -206,17 +219,25 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           value={formData.notes}
           onChange={(e) => updateField('notes', e.target.value)}
           placeholder="Заметки о сервере..."
+          disabled={loading}
         />
       </div>
 
       <div className="flex justify-end gap-2">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
             Отмена
           </Button>
         )}
         <Button type="submit" disabled={loading}>
-          {loading ? 'Сохранение...' : 'Сохранить'}
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Сохранение...
+            </>
+          ) : (
+            'Сохранить'
+          )}
         </Button>
       </div>
     </form>

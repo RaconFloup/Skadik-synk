@@ -1,12 +1,14 @@
 import { Server } from '@/types'
 import { Button } from './ui/button'
+import { Loader2 } from 'lucide-react'
 
 interface ServerTableProps {
   servers: Server[]
   onSync: (id: string) => void
+  syncingId: string | null
 }
 
-export function ServerTable({ servers, onSync }: ServerTableProps) {
+export function ServerTable({ servers, onSync, syncingId }: ServerTableProps) {
   return (
     <div className="rounded-md border">
       <table className="w-full">
@@ -45,8 +47,20 @@ export function ServerTable({ servers, onSync }: ServerTableProps) {
               </td>
               <td className="p-4">{server.next_payment || '-'}</td>
               <td className="p-4">
-                <Button size="sm" variant="outline" onClick={() => onSync(server.id)}>
-                  Синхр
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onSync(server.id)}
+                  disabled={syncingId === server.id}
+                >
+                  {syncingId === server.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Синхр...
+                    </>
+                  ) : (
+                    'Синхр'
+                  )}
                 </Button>
               </td>
             </tr>

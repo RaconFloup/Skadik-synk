@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Toast } from '@/components/ui/toast'
 import { ServerTable } from '@/components/ServerTable'
 import { ServerForm } from '@/components/ServerForm'
 import { ServerCard } from '@/components/ServerCard'
@@ -18,8 +19,10 @@ import { Plus, Server as ServerIcon, RefreshCw } from 'lucide-react'
 export default function App() {
   const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const loadServers = async () => {
     try {
@@ -37,12 +40,23 @@ export default function App() {
   }, [])
 
   const handleAddServer = async (data: ServerCreate) => {
+    setSaving(true)
     try {
-      await serversApi.create(data)
+      const cleanedData = {
+        ...data,
+        traffic: data.traffic || undefined,
+        next_payment: data.next_payment || undefined,
+        notes: data.notes || undefined,
+      }
+      await serversApi.create(cleanedData)
       setShowAddDialog(false)
+      setToast({ message: 'Сервер успешно добавлен', type: 'success' })
       loadServers()
     } catch (error) {
+      setToast({ message: 'Ошибка при добавлении сервера', type: 'error' })
       console.error('Failed to create server:', error)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -50,8 +64,10 @@ export default function App() {
     setSyncingId(id)
     try {
       await serversApi.sync(id)
+      setToast({ message: 'Синхронизация завершена', type: 'success' })
       loadServers()
     } catch (error) {
+      setToast({ message: 'Ошибка синхронизации', type: 'error' })
       console.error('Failed to sync server:', error)
     } finally {
       setSyncingId(null)
@@ -62,8 +78,10 @@ export default function App() {
     if (confirm('Удалить сервер?')) {
       try {
         await serversApi.delete(id)
+        setToast({ message: 'Сервер удалён', type: 'success' })
         loadServers()
       } catch (error) {
+        setToast({ message: 'Ошибка при удалении сервера', type: 'error' })
         console.error('Failed to delete server:', error)
       }
     }
@@ -71,6 +89,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background p-8">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -99,6 +124,7 @@ export default function App() {
                 <ServerForm
                   onSubmit={handleAddServer}
                   onCancel={() => setShowAddDialog(false)}
+                  loading={saving}
                 />
               </DialogContent>
             </Dialog>
@@ -106,11 +132,14 @@ export default function App() {
         </div>
 
         {loading ? (
-          <div className="text-center py-8">Загрузка...</div>
+          <div className="text-center py-8">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent" />
+            <p className="mt-2 text-muted-foreground">Загрузка...</p>
+          </div>
         ) : (
           <>
             <div className="mb-8">
-              <ServerTable servers={servers} onSync={handleSync} />
+              <ServerTable servers={servers} onSync={handleSync} syncingId={syncingId} />
             </div>
 
             {servers.length > 0 && (
@@ -123,6 +152,7 @@ export default function App() {
                       server={server}
                       onSync={handleSync}
                       onDelete={handleDelete}
+                      syncing={syncingId === server.id}
                     />
                   ))}
                 </div>
