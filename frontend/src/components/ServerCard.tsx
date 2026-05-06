@@ -6,7 +6,6 @@ import { Loader2, Trash2, RefreshCw, ServerIcon } from 'lucide-react'
 interface ServerCardProps {
   server: Server
   onSync: (id: string) => void
-  onEdit?: (server: Server) => void
   onDelete?: (id: string) => void
   syncing?: boolean
 }
