@@ -13,6 +13,7 @@ import { Toast } from '@/components/ui/toast'
 import { ServerTable } from '@/components/ServerTable'
 import { ServerForm } from '@/components/ServerForm'
 import { Sidebar } from '@/components/Sidebar'
+import { AppearanceSettings } from '@/components/AppearanceSettings'
 import { Plus, RefreshCw, Zap, Loader2 } from 'lucide-react'
 
 export default function App() {
@@ -227,11 +228,7 @@ export default function App() {
             </div>
           )}
 
-          {activeView === 'settings' && (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <p className="text-sm">Настройки в разработке</p>
-            </div>
-          )}
+          {activeView === 'settings' && <AppearanceSettings />}
         </main>
       </div>
 
