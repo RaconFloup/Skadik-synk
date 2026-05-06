@@ -13,7 +13,7 @@ async def create_host(server: ServerCreate) -> dict:
                 "Content-Type": "application/json"
             },
             json={
-                "name": f"{server.purpose} [{server.hosting}]",
+                "name": f"{server.purpose} [{server.country}] {server.hosting}",
                 "ip": server.ip,
                 "port": server.ssh_port,
                 "username": server.ssh_username,
@@ -43,7 +43,7 @@ async def update_host(termix_host_id, server: ServerUpdate) -> dict:
                 "Content-Type": "application/json"
             },
             json={
-                "name": f"{server.purpose} [{server.hosting}]",
+                "name": f"{server.purpose} [{server.country}] {server.hosting}",
                 "ip": server.ip,
                 "port": server.ssh_port,
                 "username": server.ssh_username,
