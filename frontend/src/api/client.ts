@@ -32,4 +32,9 @@ export const hostingApi = {
   delete: (id: string) => api.delete(`/hostings/${id}`),
 }
 
+export const settingsApi = {
+  getAll: () => api.get<Record<string, string>>('/settings').then(res => res.data),
+  update: (data: Record<string, string>) => api.put<Record<string, string>>('/settings', data).then(res => res.data),
+}
+
 export default api

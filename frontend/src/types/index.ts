@@ -65,6 +65,8 @@ export const CURRENCIES = [
 ]
 
 export const CYCLES = [
+  { value: "daily", label: "Ежедневно" },
+  { value: "weekly", label: "Еженедельно" },
   { value: "monthly", label: "Ежемесячно" },
   { value: "yearly", label: "Ежегодно" },
 ]

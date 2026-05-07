@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, Calendar } from 'lucide-react'
+import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard } from 'lucide-react'
 
 interface SidebarProps {
-  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'calendar'
-  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'calendar') => void
+  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing'
+  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing') => void
   serverCount: number
 }
 
@@ -13,7 +13,7 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
   const navItems = [
     { id: 'dashboard' as const, icon: LayoutDashboard, label: 'Дашборд' },
     { id: 'servers' as const, icon: Server, label: 'Серверы', count: serverCount },
-    { id: 'calendar' as const, icon: Calendar, label: 'Календарь' },
+    { id: 'billing' as const, icon: CreditCard, label: 'Биллинг' },
     { id: 'activity' as const, icon: Activity, label: 'Активность' },
     { id: 'settings' as const, icon: Settings, label: 'Настройки' },
   ]

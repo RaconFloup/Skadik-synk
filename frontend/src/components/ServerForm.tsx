@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { hostingApi } from '@/api/client'
 import type { Hosting } from '@/types'
-import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, HOSTING_SUGGESTIONS } from '@/types'
+import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -42,6 +42,20 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
   useEffect(() => {
     hostingApi.getAll().then(setHostings).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (formData.created && formData.cycle) {
+      const date = new Date(formData.created)
+      switch (formData.cycle) {
+        case 'daily': date.setDate(date.getDate() + 1); break
+        case 'weekly': date.setDate(date.getDate() + 7); break
+        case 'monthly': date.setMonth(date.getMonth() + 1); break
+        case 'yearly': date.setFullYear(date.getFullYear() + 1); break
+      }
+      const next = date.toISOString().split('T')[0]
+      setFormData((prev) => ({ ...prev, next_payment: next }))
+    }
+  }, [formData.created, formData.cycle])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,6 +227,28 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
           </Select>
         </div>
         <div>
+          <label className="block text-sm font-medium mb-1">Цикл аренды</label>
+          <Select
+            value={formData.cycle}
+            onValueChange={(v) => updateField('cycle', v)}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CYCLES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
           <label className="block text-sm font-medium mb-1">Трафик</label>
           <Input
             value={formData.traffic}
@@ -221,9 +257,6 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             disabled={loading}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Дата аренды</label>
           <Input
@@ -233,6 +266,9 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             disabled={loading}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Следующая оплата</label>
           <Input
@@ -242,16 +278,15 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
             disabled={loading}
           />
         </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Заметки</label>
-        <Textarea
-          value={formData.notes}
-          onChange={(e) => updateField('notes', e.target.value)}
-          placeholder="Заметки о сервере..."
-          disabled={loading}
-        />
+        <div>
+          <label className="block text-sm font-medium mb-1">Заметки</label>
+          <Textarea
+            value={formData.notes}
+            onChange={(e) => updateField('notes', e.target.value)}
+            placeholder="Заметки о сервере..."
+            disabled={loading}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end gap-2">

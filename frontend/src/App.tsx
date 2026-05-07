@@ -14,11 +14,13 @@ import { ServerTable } from '@/components/ServerTable'
 import { ServerForm } from '@/components/ServerForm'
 import { Sidebar } from '@/components/Sidebar'
 import { AppearanceSettings } from '@/components/AppearanceSettings'
+import { GeneralSettings } from '@/components/GeneralSettings'
 import { HostingManager } from '@/components/HostingManager'
-import { Plus, RefreshCw, Zap, Loader2, Calendar as CalendarIcon, LayoutDashboard, X, Server as ServerIcon } from 'lucide-react'
+import { BillingPage } from '@/components/BillingPage'
+import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon } from 'lucide-react'
 
-type View = 'dashboard' | 'servers' | 'calendar' | 'activity' | 'settings'
-type SettingsTab = 'appearance' | 'hostings' | 'integrations'
+type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings'
+type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
 
 export default function App() {
   const [servers, setServers] = useState<Server[]>([])
@@ -29,7 +31,7 @@ export default function App() {
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [activeView, setActiveView] = useState<View>('servers')
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('appearance')
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [gradientBg, setGradientBg] = useState(() => {
@@ -187,7 +189,7 @@ export default function App() {
             <h1 className="text-lg font-semibold">
               {activeView === 'dashboard' && 'Дашборд'}
               {activeView === 'servers' && 'Серверы'}
-              {activeView === 'calendar' && 'Календарь'}
+              {activeView === 'billing' && 'Биллинг'}
               {activeView === 'activity' && 'Активность'}
               {activeView === 'settings' && 'Настройки'}
             </h1>
@@ -305,12 +307,8 @@ export default function App() {
             </>
           )}
 
-          {activeView === 'calendar' && (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <CalendarIcon className="mb-4 h-12 w-12 text-primary/40" />
-              <h3 className="text-lg font-medium text-foreground">Календарь</h3>
-              <p className="mt-1 text-sm">Здесь будут отображаться даты оплат серверов</p>
-            </div>
+          {activeView === 'billing' && (
+            <BillingPage servers={servers} />
           )}
 
           {activeView === 'activity' && (
@@ -343,7 +341,7 @@ export default function App() {
           {activeView === 'settings' && (
             <div>
               <div className="mb-6 flex gap-1 rounded-lg border border-border/50 bg-card p-1">
-                {(['appearance', 'hostings', 'integrations'] as const).map((tab) => (
+                {(['general', 'appearance', 'hostings', 'integrations'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setSettingsTab(tab)}
@@ -351,6 +349,7 @@ export default function App() {
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:text-foreground')}
                   >
+                    {tab === 'general' && 'Общее'}
                     {tab === 'appearance' && 'Внешний вид'}
                     {tab === 'hostings' && 'Хостинги'}
                     {tab === 'integrations' && 'Интеграции'}
@@ -358,6 +357,7 @@ export default function App() {
                 ))}
               </div>
 
+              {settingsTab === 'general' && <GeneralSettings />}
               {settingsTab === 'appearance' && <AppearanceSettings />}
               {settingsTab === 'hostings' && (
                 <div className="space-y-6">
