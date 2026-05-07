@@ -355,7 +355,7 @@ export default function App() {
           )}
 
           {activeView === 'billing' && (
-            <BillingPage servers={servers} />
+            <BillingPage servers={servers} onServersChange={loadServers} />
           )}
 
           {activeView === 'activity' && (

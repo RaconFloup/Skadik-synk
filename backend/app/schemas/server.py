@@ -44,6 +44,7 @@ class ServerUpdate(ServerBase):
     next_payment: Optional[date] = None
     notes: Optional[str] = None
     services: Optional[dict] = None
+    not_renewing: Optional[bool] = None
 
 
 class ServerResponse(ServerBase):
@@ -51,6 +52,7 @@ class ServerResponse(ServerBase):
     termix_host_id: Optional[str] = None
     google_doc_id: Optional[str] = None
     needs_sync: bool = True
+    not_renewing: bool = False
     created_at: datetime
     updated_at: datetime
 

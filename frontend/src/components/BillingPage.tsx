@@ -1,7 +1,7 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import type { Server } from '@/types'
-import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2 } from 'lucide-react'
-import { settingsApi, hostingApi } from '@/api/client'
+import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban } from 'lucide-react'
+import { settingsApi, hostingApi, serversApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { flagImg, countryName } from '@/lib/flags'
 
@@ -9,6 +9,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '�
 
 interface BillingPageProps {
   servers: Server[]
+  onServersChange?: () => void
 }
 
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
@@ -31,7 +32,18 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - now.getTime()) / 86400000)
 }
 
-export function BillingPage({ servers }: BillingPageProps) {
+function addCycle(dateStr: string, cycle: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  switch (cycle) {
+    case 'daily': d.setDate(d.getDate() + 1); break
+    case 'weekly': d.setDate(d.getDate() + 7); break
+    case 'monthly': d.setMonth(d.getMonth() + 1); break
+    case 'yearly': d.setFullYear(d.getFullYear() + 1); break
+  }
+  return d.toISOString().split('T')[0]
+}
+
+export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [view, setView] = useState<'calendar' | 'list'>('calendar')
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -108,6 +120,33 @@ export function BillingPage({ servers }: BillingPageProps) {
   const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7
 
   const todayStr = now.toISOString().split('T')[0]
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const handlePaid = useCallback(async (server: Server) => {
+    if (!server.next_payment) return
+    setActionLoading(server.id)
+    try {
+      const nextDate = addCycle(server.next_payment, server.cycle)
+      await serversApi.update(server.id, { next_payment: nextDate })
+      onServersChange?.()
+    } catch {
+      console.error('Failed to mark as paid')
+    } finally {
+      setActionLoading(null)
+    }
+  }, [onServersChange])
+
+  const handleNotRenew = useCallback(async (server: Server) => {
+    setActionLoading(server.id)
+    try {
+      await serversApi.update(server.id, { not_renewing: !server.not_renewing })
+      onServersChange?.()
+    } catch {
+      console.error('Failed to toggle renew')
+    } finally {
+      setActionLoading(null)
+    }
+  }, [onServersChange])
 
   function getCalendarDays(): (number | null)[] {
     const days: (number | null)[] = []
@@ -278,22 +317,46 @@ export function BillingPage({ servers }: BillingPageProps) {
                       <div key={s.id} className="flex items-center justify-between rounded-lg bg-accent/30 px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
-                          {isOverdue && (
+                          {s.not_renewing && (
+                            <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
+                              <Ban className="h-3 w-3" />
+                              Не продляется
+                            </span>
+                          )}
+                          {isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
                               <AlertTriangle className="h-3 w-3" />
                               Просрочено
                             </span>
                           )}
-                          {isSoon && !isOverdue && (
+                          {isSoon && !isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
                               <Clock className="h-3 w-3" />
                               {daysLeft === 0 ? 'Сегодня' : daysLeft === 1 ? 'Завтра' : `Через ${daysLeft} дн`}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-sm">
                           <span className="text-muted-foreground">{getCycleLabel(s.cycle)}</span>
                           {s.cost && <span className="font-medium">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={() => handlePaid(s)}
+                              disabled={actionLoading === s.id || s.not_renewing}
+                              className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30"
+                              title="Оплачен"
+                            >
+                              {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => handleNotRenew(s)}
+                              disabled={actionLoading === s.id}
+                              className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')}
+                              title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -340,7 +403,7 @@ export function BillingPage({ servers }: BillingPageProps) {
                 const isSoon = daysLeft >= 0 && daysLeft <= 3
 
                 return (
-                  <div key={s.id} className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-accent/20">
+                   <div key={s.id} className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-accent/20">
                     <div className={`flex w-14 flex-col items-center rounded-lg py-2 ${
                       isOverdue
                         ? 'bg-red-500/10 text-red-400'
@@ -358,13 +421,19 @@ export function BillingPage({ servers }: BillingPageProps) {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
-                          {isOverdue && (
+                          {s.not_renewing && (
+                            <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
+                              <Ban className="h-3 w-3" />
+                              Не продляется
+                            </span>
+                          )}
+                          {isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
                               <AlertTriangle className="h-3 w-3" />
                               Просрочено
                             </span>
                           )}
-                          {isSoon && !isOverdue && (
+                          {isSoon && !isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
                               <Clock className="h-3 w-3" />
                               {daysLeft === 0 ? 'Сегодня' : daysLeft === 1 ? 'Завтра' : `Через ${daysLeft} дн`}
@@ -378,13 +447,33 @@ export function BillingPage({ servers }: BillingPageProps) {
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        {s.cost && (
-                          <div className="text-sm font-semibold">
-                            {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
-                          </div>
-                        )}
-                        <div className="text-xs text-muted-foreground">{getCycleLabel(s.cycle)}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          {s.cost && (
+                            <div className="text-sm font-semibold">
+                              {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground">{getCycleLabel(s.cycle)}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handlePaid(s)}
+                            disabled={actionLoading === s.id || s.not_renewing}
+                            className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30"
+                            title="Оплачен"
+                          >
+                            {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => handleNotRenew(s)}
+                            disabled={actionLoading === s.id}
+                            className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')}
+                            title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

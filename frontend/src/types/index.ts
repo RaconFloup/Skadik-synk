@@ -19,6 +19,7 @@ export interface Server {
   termix_host_id?: string
   google_doc_id?: string
   needs_sync: boolean
+  not_renewing: boolean
   created_at: string
   updated_at: string
 }

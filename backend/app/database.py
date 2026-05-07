@@ -54,6 +54,18 @@ def run_migrations():
             UPDATE servers SET country = 'ua Ukraine' WHERE country = '\U0001F1FA\U0001F1E6 Ukraine';
         """))
 
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'servers' AND column_name = 'not_renewing'
+                ) THEN
+                    ALTER TABLE servers ADD COLUMN not_renewing BOOLEAN DEFAULT FALSE;
+                END IF;
+            END $$;
+        """))
+
         conn.commit()
 
 
