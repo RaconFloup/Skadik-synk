@@ -119,8 +119,15 @@ export default function App() {
   const handleSync = async (id: string) => {
     setSyncingId(id)
     try {
-      await serversApi.sync(id)
-      setToast({ message: 'Синхронизация завершена', type: 'success' })
+      const result = await serversApi.sync(id)
+      const errors: string[] = []
+      if (result.termix && !result.termix.success) errors.push('Termix: ' + (result.termix.error || 'неизвестная ошибка'))
+      if (result.google_drive && !result.google_drive.success) errors.push('Google Drive: ' + (result.google_drive.error || 'неизвестная ошибка'))
+      if (errors.length > 0) {
+        setToast({ message: errors.join('; '), type: 'error' })
+      } else {
+        setToast({ message: 'Синхронизация завершена', type: 'success' })
+      }
       const server = servers.find((s) => s.id === id)
       if (server) addActivity('Синхронизация: ' + server.purpose)
       loadServers()

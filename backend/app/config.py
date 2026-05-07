@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
 
     TERMIX_URL: str = "http://example.com"
-    TERMIX_JWT_TOKEN: str = ""
+    TERMIX_USERNAME: str = ""
+    TERMIX_PASSWORD: str = ""
 
     GOOGLE_SCRIPT_URL: str = ""
     GOOGLE_FOLDER_ID: str = ""

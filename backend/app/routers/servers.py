@@ -27,8 +27,8 @@ async def sync_server_to_services(server: Server):
             }))
             if termix_result.get("success"):
                 server.termix_host_id = termix_result.get("host_id")
-        except:
-            pass
+        except Exception as e:
+            print(f"Termix sync error: {e}")
 
     if not server.google_doc_id:
         try:

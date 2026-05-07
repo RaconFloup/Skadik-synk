@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import type { Server } from '@/types'
 import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2 } from 'lucide-react'
-import { settingsApi } from '@/api/client'
+import { settingsApi, hostingApi } from '@/api/client'
+import type { Hosting } from '@/types'
 
 const CURRENCY_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '€' }
 
@@ -36,14 +37,19 @@ export function BillingPage({ servers }: BillingPageProps) {
   const [baseCurrency, setBaseCurrency] = useState('RUB')
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
   const [loadingRates, setLoadingRates] = useState(true)
+  const [hostingLogoMap, setHostingLogoMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     Promise.all([
       settingsApi.getAll().catch(() => ({ base_currency: 'RUB' })),
       fetch('https://api.exchangerate-api.com/v4/latest/USD').then((r) => r.json()).catch(() => null),
-    ]).then(([settings, data]) => {
+      hostingApi.getAll().catch(() => [] as Hosting[]),
+    ]).then(([settings, data, hostings]) => {
       if (settings.base_currency) setBaseCurrency(settings.base_currency)
       if (data?.rates) setRates(data.rates)
+      const map: Record<string, string> = {}
+      hostings.forEach((h) => { if (h.name) map[h.name] = h.logo_url || '' })
+      setHostingLogoMap(map)
     }).finally(() => setLoadingRates(false))
   }, [])
 
@@ -201,14 +207,13 @@ export function BillingPage({ servers }: BillingPageProps) {
                   const dayPayments = paymentsByDate[dateStr]
                   const isSelected = selectedDate === dateStr
                   const isToday = dateStr === todayStr
-                  const isOverdue = dayPayments && daysUntil(dateStr) < 0
                   const isWeekend = (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6)
 
                   return (
                     <button
                       key={dateStr}
                       onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                      className={`relative flex flex-col items-center rounded-xl p-3 text-sm transition-all ${
+                      className={`relative flex flex-col rounded-xl p-2 text-xs transition-all min-h-[72px] ${
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105'
                           : dayPayments
@@ -216,23 +221,32 @@ export function BillingPage({ servers }: BillingPageProps) {
                           : 'hover:bg-accent/30'
                       }`}
                     >
-                      <span className={`leading-none ${isToday && !isSelected ? 'font-bold' : ''} ${isWeekend && !isSelected && !dayPayments ? 'text-muted-foreground/50' : ''}`}>
+                      <span className={`text-left leading-none mb-1 ${isToday && !isSelected ? 'font-bold' : ''} ${isWeekend && !isSelected && !dayPayments ? 'text-muted-foreground/50' : ''}`}>
                         {day}
                       </span>
                       {isToday && !isSelected && (
-                        <span className="mt-1 h-1 w-1 rounded-full bg-primary" />
+                        <span className="h-0.5 w-3 rounded-full bg-primary mb-1" />
                       )}
                       {dayPayments && (
-                        <span className={`mt-1 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${
-                          isSelected
-                            ? 'bg-primary-foreground/20 text-primary-foreground'
-                            : isOverdue
-                            ? 'bg-red-500/15 text-red-400'
-                            : 'bg-primary/10 text-primary'
-                        }`}>
-                          {dayPayments.length > 1 ? dayPayments.length : ''}
-                          <span className={`h-1.5 w-1.5 rounded-full ${isOverdue ? 'bg-red-400' : 'bg-current'}`} />
-                        </span>
+                        <div className="flex flex-col gap-0.5 w-full">
+                          {dayPayments.slice(0, 3).map((s) => (
+                            <div key={s.id} className="flex items-center gap-1 leading-tight">
+                              {hostingLogoMap[s.hosting] ? (
+                                <img src={hostingLogoMap[s.hosting]} alt="" className="h-3.5 w-3.5 rounded shrink-0 object-contain" />
+                              ) : (
+                                <span className="h-3.5 w-3.5 rounded shrink-0 bg-accent" />
+                              )}
+                              <span className={`truncate ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                {s.purpose}
+                              </span>
+                            </div>
+                          ))}
+                          {dayPayments.length > 3 && (
+                            <span className={`text-[10px] ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>
+                              +{dayPayments.length - 3}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </button>
                   )
