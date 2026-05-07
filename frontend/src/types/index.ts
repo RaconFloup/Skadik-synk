@@ -17,7 +17,6 @@ export interface Server {
   notes?: string
   services?: Record<string, string>
   termix_host_id?: string
-  zublo_subscription_id?: string
   google_doc_id?: string
   created_at: string
   updated_at: string
@@ -89,7 +88,6 @@ export const HOSTING_SUGGESTIONS = [
 
 export interface SyncResult {
   termix?: { success: boolean; error?: string }
-  zublo?: { success: boolean; error?: string }
   google_drive?: { success: boolean; error?: string }
 }
 

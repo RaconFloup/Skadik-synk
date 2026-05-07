@@ -9,9 +9,6 @@ class Settings(BaseSettings):
     TERMIX_URL: str = "http://example.com"
     TERMIX_JWT_TOKEN: str = ""
 
-    ZUBLO_URL: str = "https://zublonffdih7e.skadik.ru"
-    ZUBLO_API_KEY: str = ""
-
     GOOGLE_SCRIPT_URL: str = ""
     GOOGLE_FOLDER_ID: str = ""
 

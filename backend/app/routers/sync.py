@@ -5,7 +5,7 @@ from uuid import UUID
 from app.database import get_db
 from app.models.server import Server
 from app.schemas.server import ServerCreate
-from app.services import termix, zublo, google_drive
+from app.services import termix, google_drive
 from datetime import date
 
 router = APIRouter(prefix="/api/servers", tags=["sync"])
@@ -17,7 +17,7 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
 
-    results = {"termix": None, "zublo": None, "google_drive": None}
+    results = {"termix": None, "google_drive": None}
 
     if server.status == "active":
         try:
@@ -33,19 +33,6 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
             results["termix"] = termix_result
         except Exception as e:
             results["termix"] = {"success": False, "error": str(e)}
-
-    if server.cost and server.next_payment:
-        try:
-            zublo_result = await zublo.create_subscription(
-                name=f"{server.purpose} [{server.hosting}]",
-                price=float(server.cost),
-                currency=server.currency,
-                cycle=server.cycle,
-                next_payment=server.next_payment.strftime("%Y-%m-%d") if isinstance(server.next_payment, date) else str(server.next_payment)
-            )
-            results["zublo"] = zublo_result
-        except Exception as e:
-            results["zublo"] = {"success": False, "error": str(e)}
 
     if server.next_payment:
         try:
@@ -89,28 +76,6 @@ async def sync_termix(server_id: UUID, db: Session = Depends(get_db)):
             "ssh_username": server.ssh_username,
             "ssh_password": server.ssh_password
         }))
-        return result
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@router.post("/{server_id}/sync-zublo")
-async def sync_zublo(server_id: UUID, db: Session = Depends(get_db)):
-    server = db.query(Server).filter(Server.id == server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-
-    if not server.cost or not server.next_payment:
-        raise HTTPException(status_code=400, detail="Cost or next_payment not set")
-
-    try:
-        result = await zublo.create_subscription(
-            name=f"{server.purpose} [{server.hosting}]",
-            price=float(server.cost),
-            currency=server.currency,
-            cycle=server.cycle,
-            next_payment=server.next_payment.strftime("%Y-%m-%d") if isinstance(server.next_payment, date) else str(server.next_payment)
-        )
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}

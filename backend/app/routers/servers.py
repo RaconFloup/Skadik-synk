@@ -6,7 +6,7 @@ from uuid import UUID
 from app.database import get_db
 from app.models.server import Server
 from app.schemas.server import ServerCreate, ServerUpdate, ServerResponse
-from app.services import termix, zublo, google_drive
+from app.services import termix, google_drive
 from datetime import date
 
 router = APIRouter(prefix="/api/servers", tags=["servers"])
@@ -27,20 +27,6 @@ async def sync_server_to_services(server: Server):
             }))
             if termix_result.get("success"):
                 server.termix_host_id = termix_result.get("host_id")
-        except:
-            pass
-
-    if server.cost and server.next_payment and not server.zublo_subscription_id:
-        try:
-            zublo_result = await zublo.create_subscription(
-                name=f"{server.purpose} [{server.hosting}]",
-                price=float(server.cost),
-                currency=server.currency,
-                cycle=server.cycle,
-                next_payment=server.next_payment.strftime("%Y-%m-%d") if isinstance(server.next_payment, date) else str(server.next_payment)
-            )
-            if zublo_result.get("success"):
-                server.zublo_subscription_id = zublo_result.get("subscription_id")
         except:
             pass
 
@@ -123,12 +109,6 @@ async def delete_server(server_id: UUID, db: Session = Depends(get_db)):
     if server.termix_host_id:
         try:
             await termix.delete_host(server.termix_host_id)
-        except:
-            pass
-
-    if server.zublo_subscription_id:
-        try:
-            await zublo.delete_subscription(server.zublo_subscription_id)
         except:
             pass
 

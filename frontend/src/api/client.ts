@@ -13,7 +13,6 @@ export const serversApi = {
   delete: (id: string) => api.delete(`/servers/${id}`),
   sync: (id: string) => api.post<SyncResult>(`/servers/${id}/sync`).then(res => res.data),
   syncTermix: (id: string) => api.post(`/servers/${id}/sync-termix`).then(res => res.data),
-  syncZublo: (id: string) => api.post(`/servers/${id}/sync-zublo`).then(res => res.data),
   syncGdrive: (id: string) => api.post(`/servers/${id}/sync-gdrive`).then(res => res.data),
 }
 

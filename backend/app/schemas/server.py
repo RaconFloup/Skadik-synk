@@ -49,7 +49,6 @@ class ServerUpdate(ServerBase):
 class ServerResponse(ServerBase):
     id: UUID
     termix_host_id: Optional[str] = None
-    zublo_subscription_id: Optional[str] = None
     google_doc_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime

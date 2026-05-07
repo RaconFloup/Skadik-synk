@@ -27,7 +27,6 @@ class Server(Base):
     notes = Column(Text)
     services = Column(JSONB, default={})
     termix_host_id = Column(String(255))
-    zublo_subscription_id = Column(String(255))
     google_doc_id = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
