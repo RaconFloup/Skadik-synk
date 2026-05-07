@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { serversApi, activityApi } from '@/api/client'
-import type { Server, ServerCreate, ActivityLog } from '@/types'
+import { serversApi, activityApi, settingsApi } from '@/api/client'
+import type { Server, ServerCreate, ActivityLog, PurposeItem } from '@/types'
+import { DEFAULT_PURPOSES } from '@/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,11 +18,14 @@ import { AppearanceSettings } from '@/components/AppearanceSettings'
 import { GeneralSettings } from '@/components/GeneralSettings'
 import { HostingManager } from '@/components/HostingManager'
 import { BillingPage } from '@/components/BillingPage'
+import { IntegrationsSettings } from '@/components/IntegrationsSettings'
 import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 
 type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings'
 type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
+
+const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
 
 export default function App() {
   const [servers, setServers] = useState<Server[]>([])
@@ -31,6 +35,8 @@ export default function App() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
+  const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
   const [activeView, setActiveView] = useState<View>('servers')
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
@@ -93,6 +99,14 @@ export default function App() {
   useEffect(() => {
     loadServers()
     loadActivities()
+    settingsApi.getAll().then((s) => {
+      if (s.purpose_order) {
+        try { setPurposeOrder(JSON.parse(s.purpose_order)) } catch {}
+      }
+      if (s.purposes) {
+        try { setPurposes(JSON.parse(s.purposes)) } catch {}
+      }
+    }).catch(() => {})
   }, [])
 
   const handleSaveServer = async (id: string, data: Partial<Server>) => {
@@ -333,6 +347,8 @@ export default function App() {
                     syncingId={syncingId}
                     onDelete={(id) => setDeleteServerId(id)}
                     onSave={handleSaveServer}
+                    purposeOrder={purposeOrder}
+                    purposes={purposes}
                   />
               )}
             </>
@@ -388,7 +404,7 @@ export default function App() {
                 ))}
               </div>
 
-              {settingsTab === 'general' && <GeneralSettings />}
+              {settingsTab === 'general' && <GeneralSettings onPurposesChange={setPurposes} />}
               {settingsTab === 'appearance' && <AppearanceSettings />}
               {settingsTab === 'hostings' && (
                 <div className="space-y-6">
@@ -401,12 +417,7 @@ export default function App() {
                   <HostingManager />
                 </div>
               )}
-              {settingsTab === 'integrations' && (
-                <div className="rounded-lg border border-border/50 bg-card p-6">
-                  <h3 className="font-medium">Интеграции</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">В разработке</p>
-                </div>
-              )}
+              {settingsTab === 'integrations' && <IntegrationsSettings />}
             </div>
           )}
         </main>
@@ -425,6 +436,7 @@ export default function App() {
             onSubmit={handleAddServer}
             onCancel={() => setShowAddDialog(false)}
             loading={saving}
+            purposes={purposes}
           />
         </DialogContent>
       </Dialog>

@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     GOOGLE_SCRIPT_URL: str = ""
     GOOGLE_FOLDER_ID: str = ""
 
+    TELEGRAM_BOT_TOKEN: str = ""
+
     class Config:
         env_file = ".env"
 

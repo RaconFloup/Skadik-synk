@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { hostingApi } from '@/api/client'
+import { hostingApi, telegramApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Server, Plus, Trash2, Check, Pencil, Globe, Search, Wand2, Loader2, Upload } from 'lucide-react'
+import { Server, Plus, Trash2, Check, Pencil, Globe, Search, Wand2, Loader2, Upload, MessageCircle } from 'lucide-react'
 
 interface FormData {
   name: string
@@ -28,6 +28,7 @@ export function HostingManager() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [fetchingTelegram, setFetchingTelegram] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -124,6 +125,31 @@ export function HostingManager() {
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
     setLogoPreview(faviconUrl)
     setForm((prev) => ({ ...prev, logo_url: faviconUrl }))
+  }
+
+  function isTelegramUrl(url: string): boolean {
+    return /t\.me\/(\w+)$/.test(url.trim().replace(/\/$/, ''))
+  }
+
+  function extractTelegramUsername(url: string): string | null {
+    const match = url.trim().replace(/\/$/, '').match(/t\.me\/(\w+)$/)
+    return match ? match[1] : null
+  }
+
+  async function handleTelegramFetch() {
+    const username = extractTelegramUsername(form.url)
+    if (!username) return
+    setFetchingTelegram(true)
+    try {
+      const result = await telegramApi.fetchAvatar(username)
+      setLogoPreview(result.logo_url)
+      setForm((prev) => ({ ...prev, logo_url: result.logo_url }))
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail || e?.message || 'Ошибка при загрузке аватара'
+      alert(msg)
+    } finally {
+      setFetchingTelegram(false)
+    }
   }
 
   function handleUrlChange(value: string) {
@@ -314,6 +340,18 @@ export function HostingManager() {
                   <Globe className="h-4 w-4" />
                   Favicon
                 </Button>
+                {isTelegramUrl(form.url) && (
+                  <Button type="button" variant="outline" size="sm" onClick={handleTelegramFetch}
+                    disabled={fetchingTelegram}
+                    title="Загрузить аватар Telegram-бота" className="flex items-center gap-1">
+                    {fetchingTelegram ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <MessageCircle className="h-4 w-4" />
+                    )}
+                    Telegram
+                  </Button>
+                )}
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                 <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}
                   title="Загрузить с компьютера" className="flex items-center gap-1">
@@ -328,7 +366,7 @@ export function HostingManager() {
                   <img src={logoPreview} alt="Preview"
                     className="h-12 w-12 rounded object-contain" />
                   <div className="flex-1">
-                    <p className="text-xs text-muted-foreground break-all">{logoPreview}</p>
+                    <p className="text-xs text-muted-foreground break-all">{logoPreview.length > 120 ? logoPreview.slice(0, 120) + '...' : logoPreview}</p>
                   </div>
                   <Button type="button" variant="outline" size="sm" onClick={removeLogoBg}
                     className="flex items-center gap-1 shrink-0">

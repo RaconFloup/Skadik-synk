@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { hostingApi } from '@/api/client'
-import type { Hosting } from '@/types'
-import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
+import type { Hosting, PurposeItem, ServerCreate } from '@/types'
+import { DEFAULT_PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
 import { flagImg, countryName } from '@/lib/flags'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -20,6 +20,7 @@ interface ServerFormProps {
   onCancel?: () => void
   loading?: boolean
   initialData?: ServerCreate
+  purposes?: PurposeItem[]
 }
 
 const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
@@ -39,7 +40,8 @@ const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
   notes: '',
 }
 
-export function ServerForm({ onSubmit, onCancel, loading, initialData }: ServerFormProps) {
+export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes }: ServerFormProps) {
+  const purposeOptions = purposes ?? DEFAULT_PURPOSES
   const [formData, setFormData] = useState<ServerCreate>(() => defaultFormData(initialData))
   const [hostings, setHostings] = useState<Hosting[]>([])
 
@@ -98,7 +100,7 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData }: ServerF
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PURPOSES.map((p) => (
+              {purposeOptions.map((p) => (
                 <SelectItem key={p.value} value={p.value}>
                   {p.label}
                 </SelectItem>

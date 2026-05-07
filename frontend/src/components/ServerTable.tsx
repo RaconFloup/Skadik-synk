@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { Server } from '@/types'
-import { PURPOSES, COUNTRIES, CURRENCIES, CYCLES } from '@/types'
+import type { Server, PurposeItem } from '@/types'
+import { DEFAULT_PURPOSES, COUNTRIES, CURRENCIES, CYCLES } from '@/types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -15,15 +15,51 @@ import {
 import { Loader2, Pencil, Trash2, RefreshCw, X, Check, Eye, EyeOff } from 'lucide-react'
 import { flagImg, countryName } from '@/lib/flags'
 
+const DEFAULT_PURPOSE_ORDER = ['PANEL', 'NODE', 'SERVICES']
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-')
+  if (!y || !m || !d) return dateStr
+  return `${d}-${m}-${y}`
+}
+
+function daysRemaining(dateStr: string): number | null {
+  if (!dateStr) return null
+  const [y, m, d] = dateStr.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const target = new Date(y, m - 1, d)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  return diff
+}
+
 interface ServerTableProps {
   servers: Server[]
   onSync: (id: string) => void
   syncingId: string | null
   onDelete: (id: string) => void
   onSave: (id: string, data: Partial<Server>) => Promise<void>
+  purposeOrder?: string[]
+  purposes?: PurposeItem[]
 }
 
-export function ServerTable({ servers, onSync, syncingId, onDelete, onSave }: ServerTableProps) {
+export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purposeOrder, purposes }: ServerTableProps) {
+  const order = purposeOrder ?? DEFAULT_PURPOSE_ORDER
+  const purposeList = purposes ?? DEFAULT_PURPOSES
+
+  const groups = order
+    .map((p) => ({ purpose: p, servers: servers.filter((s) => s.purpose === p) }))
+    .filter((g) => g.servers.length > 0)
+
+  const other = servers.filter((s) => !order.includes(s.purpose))
+  if (other.length > 0) groups.push({ purpose: '', servers: other })
+
+  if (groups.length === 0 && servers.length > 0) {
+    groups.push({ purpose: '', servers })
+  }
+
   return (
     <div className="rounded-lg border border-border/50 bg-card">
       <table className="w-full">
@@ -50,18 +86,20 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave }: Se
           </tr>
         </thead>
         <tbody className="divide-y divide-border/30">
-          {servers.map((server) => (
-            <ExpandRow
-              key={server.id}
-              server={server}
+          {groups.map((group) => (
+            <GroupSection
+              key={group.purpose || '_'}
+              purpose={group.purpose}
+              servers={group.servers}
               onSync={onSync}
               syncingId={syncingId}
               onDelete={onDelete}
               onSave={onSave}
+              purposeList={purposeList}
             />
           ))}
 
-          {servers.length === 0 && (
+    {groups.length === 0 && (
             <tr>
               <td colSpan={6} className="py-12 text-center text-muted-foreground">
                 Нет серверов. Добавьте первый сервер.
@@ -74,15 +112,51 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave }: Se
   )
 }
 
+function GroupSection({
+  purpose, servers, onSync, syncingId, onDelete, onSave, purposeList,
+}: {
+  purpose: string
+  servers: Server[]
+  onSync: (id: string) => void
+  syncingId: string | null
+  onDelete: (id: string) => void
+  onSave: (id: string, data: Partial<Server>) => Promise<void>
+  purposeList: PurposeItem[]
+}) {
+  const purposeLabel = purposeList.find((p) => p.value === purpose)?.label || purpose
+  return (
+    <>
+      <tr className="bg-accent/5">
+        <td colSpan={6} className="px-4 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">{purposeLabel}</span>
+        </td>
+      </tr>
+      {servers.map((server) => (
+        <ExpandRow
+          key={server.id}
+          server={server}
+          onSync={onSync}
+          syncingId={syncingId}
+          onDelete={onDelete}
+          onSave={onSave}
+          purposeList={purposeList}
+        />
+      ))}
+    </>
+  )
+}
+
 function ExpandRow({
-  server, onSync, syncingId, onDelete, onSave,
+  server, onSync, syncingId, onDelete, onSave, purposeList,
 }: {
   server: Server
   onSync: (id: string) => void
   syncingId: string | null
   onDelete: (id: string) => void
   onSave: (id: string, data: Partial<Server>) => Promise<void>
+  purposeList: PurposeItem[]
 }) {
+  const purposeOptions = purposeList ?? DEFAULT_PURPOSES
   const [expanded, setExpanded] = useState(false)
   const [editData, setEditData] = useState<Partial<Server>>({})
   const [saving, setSaving] = useState(false)
@@ -138,7 +212,18 @@ function ExpandRow({
           {server.cost} {server.currency}
         </td>
         <td className="px-4 py-3 text-sm text-muted-foreground">
-          {server.next_payment || '—'}
+          {server.next_payment ? (
+            <span className="flex items-center gap-1.5">
+              <span>{formatDate(server.next_payment)}</span>
+              {(() => {
+                const days = daysRemaining(server.next_payment)
+                if (days === null) return null
+                if (days < 0) return <span className="text-destructive">-{Math.abs(days)}д</span>
+                if (days === 0) return <span className="text-amber-400">сегодня</span>
+                return <span className="text-muted-foreground/60">{days}д</span>
+              })()}
+            </span>
+          ) : '—'}
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1">
@@ -209,7 +294,7 @@ function ExpandRow({
                   <Select value={editData.purpose || ''} onValueChange={(v) => edit('purpose', v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {PURPOSES.map((p) => (
+                      {purposeOptions.map((p) => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                       ))}
                     </SelectContent>

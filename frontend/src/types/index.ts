@@ -41,7 +41,12 @@ export interface ServerCreate {
   services?: Record<string, string>
 }
 
-export const PURPOSES = [
+export interface PurposeItem {
+  value: string
+  label: string
+}
+
+export const DEFAULT_PURPOSES: PurposeItem[] = [
   { value: "NODE", label: "NODE" },
   { value: "PANEL", label: "PANEL" },
   { value: "SERVICES", label: "SERVICES" },

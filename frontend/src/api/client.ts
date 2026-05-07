@@ -36,4 +36,9 @@ export const settingsApi = {
   update: (data: Record<string, string>) => api.put<Record<string, string>>('/settings', data).then(res => res.data),
 }
 
+export const telegramApi = {
+  fetchAvatar: (botUsername: string) =>
+    api.post<{ logo_url: string }>('/telegram/fetch-avatar', { bot_username: botUsername }).then(res => res.data),
+}
+
 export default api
