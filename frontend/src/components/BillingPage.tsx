@@ -3,6 +3,15 @@ import type { Server } from '@/types'
 import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban } from 'lucide-react'
 import { settingsApi, hostingApi, serversApi } from '@/api/client'
 import type { Hosting } from '@/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { flagImg, countryName } from '@/lib/flags'
 
 const CURRENCY_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '€' }
@@ -122,31 +131,49 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const todayStr = now.toISOString().split('T')[0]
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  const handlePaid = useCallback(async (server: Server) => {
+  const [paidDialogServer, setPaidDialogServer] = useState<Server | null>(null)
+  const [paidDialogDate, setPaidDialogDate] = useState('')
+  const [notRenewDialogServer, setNotRenewDialogServer] = useState<Server | null>(null)
+
+  const openPaidDialog = useCallback((server: Server) => {
     if (!server.next_payment) return
+    setPaidDialogServer(server)
+    setPaidDialogDate(addCycle(server.next_payment, server.cycle))
+  }, [])
+
+  const confirmPaid = useCallback(async () => {
+    const server = paidDialogServer
+    if (!server) return
     setActionLoading(server.id)
     try {
-      const nextDate = addCycle(server.next_payment, server.cycle)
-      await serversApi.update(server.id, { next_payment: nextDate })
+      await serversApi.update(server.id, { next_payment: paidDialogDate })
       onServersChange?.()
+      setPaidDialogServer(null)
     } catch {
       console.error('Failed to mark as paid')
     } finally {
       setActionLoading(null)
     }
-  }, [onServersChange])
+  }, [paidDialogServer, paidDialogDate, onServersChange])
 
-  const handleNotRenew = useCallback(async (server: Server) => {
+  const openNotRenewDialog = useCallback((server: Server) => {
+    setNotRenewDialogServer(server)
+  }, [])
+
+  const confirmNotRenew = useCallback(async () => {
+    const server = notRenewDialogServer
+    if (!server) return
     setActionLoading(server.id)
     try {
       await serversApi.update(server.id, { not_renewing: !server.not_renewing })
       onServersChange?.()
+      setNotRenewDialogServer(null)
     } catch {
       console.error('Failed to toggle renew')
     } finally {
       setActionLoading(null)
     }
-  }, [onServersChange])
+  }, [notRenewDialogServer, onServersChange])
 
   function getCalendarDays(): (number | null)[] {
     const days: (number | null)[] = []
@@ -341,7 +368,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                           {s.cost && <span className="font-medium">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
                           <div className="flex items-center gap-1 ml-2">
                             <button
-                              onClick={() => handlePaid(s)}
+                              onClick={() => openPaidDialog(s)}
                               disabled={actionLoading === s.id || s.not_renewing}
                               className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30"
                               title="Оплачен"
@@ -349,7 +376,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                               {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                             </button>
                             <button
-                              onClick={() => handleNotRenew(s)}
+                              onClick={() => openNotRenewDialog(s)}
                               disabled={actionLoading === s.id}
                               className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')}
                               title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}
@@ -458,7 +485,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handlePaid(s)}
+                            onClick={() => openPaidDialog(s)}
                             disabled={actionLoading === s.id || s.not_renewing}
                             className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30"
                             title="Оплачен"
@@ -466,7 +493,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                             {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                           </button>
                           <button
-                            onClick={() => handleNotRenew(s)}
+                            onClick={() => openNotRenewDialog(s)}
                             disabled={actionLoading === s.id}
                             className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')}
                             title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}
@@ -483,6 +510,65 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
           )}
         </div>
       )}
+
+      <Dialog open={paidDialogServer !== null} onOpenChange={(open) => !open && setPaidDialogServer(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Подтверждение оплаты</DialogTitle>
+            <DialogDescription>
+              {paidDialogServer && (
+                <span>{paidDialogServer.purpose} [{countryName(paidDialogServer.country)}] {paidDialogServer.hosting}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Следующая оплата</label>
+              <Input
+                type="date"
+                value={paidDialogDate}
+                onChange={(e) => setPaidDialogDate(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Рассчитано автоматически на основе цикла. Можно изменить вручную.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPaidDialogServer(null)}>
+                Отмена
+              </Button>
+              <Button onClick={confirmPaid} disabled={actionLoading !== null}>
+                {actionLoading ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Обработка...</> : 'Подтвердить оплату'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={notRenewDialogServer !== null} onOpenChange={(open) => !open && setNotRenewDialogServer(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{notRenewDialogServer?.not_renewing ? 'Возобновить продление' : 'Не продлять сервер'}</DialogTitle>
+            <DialogDescription>
+              {notRenewDialogServer && (
+                <span>
+                  {notRenewDialogServer.not_renewing
+                    ? `Сервер ${notRenewDialogServer.purpose} [${countryName(notRenewDialogServer.country)}] ${notRenewDialogServer.hosting} будет продлеваться автоматически`
+                    : `Сервер ${notRenewDialogServer.purpose} [${countryName(notRenewDialogServer.country)}] ${notRenewDialogServer.hosting} не будет продлеваться после текущей оплаты`}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setNotRenewDialogServer(null)}>
+              Отмена
+            </Button>
+            <Button variant={notRenewDialogServer?.not_renewing ? 'default' : 'destructive'} onClick={confirmNotRenew} disabled={actionLoading !== null}>
+              {actionLoading ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Обработка...</> : (notRenewDialogServer?.not_renewing ? 'Возобновить' : 'Не продлять')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
