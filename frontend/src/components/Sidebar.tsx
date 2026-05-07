@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity } from 'lucide-react'
+import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, Calendar } from 'lucide-react'
 
 interface SidebarProps {
-  activeView: 'servers' | 'activity' | 'settings'
-  onViewChange: (view: 'servers' | 'activity' | 'settings') => void
+  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'calendar'
+  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'calendar') => void
   serverCount: number
 }
 
@@ -11,14 +11,16 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
   const [collapsed, setCollapsed] = useState(false)
 
   const navItems = [
+    { id: 'dashboard' as const, icon: LayoutDashboard, label: 'Дашборд' },
     { id: 'servers' as const, icon: Server, label: 'Серверы', count: serverCount },
+    { id: 'calendar' as const, icon: Calendar, label: 'Календарь' },
     { id: 'activity' as const, icon: Activity, label: 'Активность' },
     { id: 'settings' as const, icon: Settings, label: 'Настройки' },
   ]
 
   return (
     <div
-      className={`sticky top-0 h-screen shrink-0 border-r border-border/50 bg-card transition-all duration-300 ${
+      className={`sticky top-0 h-screen shrink-0 border-r border-border/50 bg-card transition-all duration-300 flex flex-col ${
         collapsed ? 'w-16' : 'w-56'
       }`}
     >
@@ -41,7 +43,7 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
         </button>
       </div>
 
-      <nav className="flex flex-col gap-1 p-2">
+      <nav className="flex flex-col gap-1 p-2 flex-1">
         {navItems.map(({ id, icon: Icon, label, count }) => (
           <button
             key={id}

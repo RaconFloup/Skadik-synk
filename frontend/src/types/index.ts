@@ -90,3 +90,19 @@ export interface SyncResult {
   zublo?: { success: boolean; error?: string }
   google_drive?: { success: boolean; error?: string }
 }
+
+export interface ActivityLog {
+  id: string
+  text: string
+  time: string
+  created_at: string
+}
+
+export interface Hosting {
+  id: string
+  name: string
+  url?: string | null
+  logo_url?: string | null
+  is_default: boolean
+  created_at: string
+}

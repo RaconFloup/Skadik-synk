@@ -60,4 +60,62 @@
   .hover-glow:hover {
     box-shadow: 0 0 15px hsl(var(--primary) / 0.1);
   }
+
+  /* Animated gradient background */
+  .gradient-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    will-change: transform, opacity;
+  }
+
+  .gradient-orb:nth-child(1) {
+    width: 500px;
+    height: 500px;
+    background: hsl(var(--primary) / 0.12);
+    animation: float-orb-1 25s ease-in-out infinite;
+  }
+
+  .gradient-orb:nth-child(2) {
+    width: 400px;
+    height: 400px;
+    background: hsl(var(--accent) / 0.1);
+    animation: float-orb-2 20s ease-in-out infinite;
+  }
+
+  .gradient-orb:nth-child(3) {
+    width: 350px;
+    height: 350px;
+    background: hsl(var(--primary) / 0.08);
+    animation: float-orb-3 30s ease-in-out infinite;
+  }
+
+  @keyframes float-orb-1 {
+    0%, 100% { transform: translate(-10%, -10%) scale(1); }
+    25% { transform: translate(80%, 20%) scale(1.1); }
+    50% { transform: translate(60%, 60%) scale(0.9); }
+    75% { transform: translate(10%, 80%) scale(1.05); }
+  }
+
+  @keyframes float-orb-2 {
+    0%, 100% { transform: translate(80%, 80%) scale(1); }
+    25% { transform: translate(10%, 40%) scale(1.15); }
+    50% { transform: translate(40%, 10%) scale(0.95); }
+    75% { transform: translate(70%, 50%) scale(1.1); }
+  }
+
+  @keyframes float-orb-3 {
+    0%, 100% { transform: translate(50%, 30%) scale(1); }
+    33% { transform: translate(20%, 70%) scale(1.2); }
+    66% { transform: translate(80%, 40%) scale(0.85); }
+  }
 }

@@ -291,11 +291,12 @@ export function applyDarkMode(isDark: boolean) {
   }
 }
 
-const STORAGE_KEY = 'skadik-theme-settings'
+export const STORAGE_KEY = 'skadik-theme-settings'
 
-interface ThemeSettings {
+export interface ThemeSettings {
   themeId: string
   isDark: boolean
+  gradientBg: boolean
   customColors: Record<string, string>
   useCustomColors: boolean
 }

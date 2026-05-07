@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { hostingApi } from '@/api/client'
+import type { Hosting } from '@/types'
 import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, HOSTING_SUGGESTIONS } from '@/types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -10,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ServerIcon } from 'lucide-react'
 
 interface ServerFormProps {
   onSubmit: (data: ServerCreate) => void
@@ -35,6 +37,11 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
     next_payment: '',
     notes: '',
   })
+  const [hostings, setHostings] = useState<Hosting[]>([])
+
+  useEffect(() => {
+    hostingApi.getAll().then(setHostings).catch(() => {})
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,19 +98,43 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Хостинг *</label>
-          <Input
+          <Select
             value={formData.hosting}
-            onChange={(e) => updateField('hosting', e.target.value)}
-            placeholder="Введите название или выберите"
-            list="hosting-suggestions"
-            required
+            onValueChange={(v) => updateField('hosting', v)}
             disabled={loading}
-          />
-          <datalist id="hosting-suggestions">
-            {HOSTING_SUGGESTIONS.map((h) => (
-              <option key={h} value={h} />
-            ))}
-          </datalist>
+          >
+            <SelectTrigger>
+              {formData.hosting ? (
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const h = hostings.find((x) => x.name === formData.hosting)
+                    return h?.logo_url ? (
+                      <img src={h.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
+                    ) : (
+                      <ServerIcon className="h-4 w-4 text-muted-foreground" />
+                    )
+                  })()}
+                  <span>{formData.hosting}</span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">Выберите хостинг</span>
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {(hostings.length > 0 ? hostings : HOSTING_SUGGESTIONS.map((n) => ({ id: n, name: n } as Hosting))).map((h) => (
+                <SelectItem key={h.id} value={h.name}>
+                  <div className="flex items-center gap-2">
+                    {(h as Hosting).logo_url ? (
+                      <img src={(h as Hosting).logo_url!} alt="" className="h-4 w-4 rounded object-contain" />
+                    ) : (
+                      <ServerIcon className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{h.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">IP адрес *</label>

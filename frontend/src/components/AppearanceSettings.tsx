@@ -1,17 +1,9 @@
 import { useState } from 'react'
-import { themes, getThemeById, applyTheme } from '@/config/themes'
+import { themes, getThemeById, applyTheme, STORAGE_KEY } from '@/config/themes'
+import type { ThemeSettings } from '@/config/themes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Palette, Sun, Moon } from 'lucide-react'
-
-const STORAGE_KEY = 'skadik-theme-settings'
-
-interface ThemeSettings {
-  themeId: string
-  isDark: boolean
-  customColors: Record<string, string>
-  useCustomColors: boolean
-}
+import { Palette, Sun, Moon, Sparkles } from 'lucide-react'
 
 function loadSettings(): ThemeSettings {
   try {
@@ -25,6 +17,7 @@ function loadSettings(): ThemeSettings {
   return {
     themeId: 'green',
     isDark: false,
+    gradientBg: true,
     customColors: {},
     useCustomColors: false,
   }
@@ -55,6 +48,7 @@ export function AppearanceSettings() {
     saveSettings(newSettings)
     const theme = getThemeById(themeId)
     applyTheme(theme, newSettings.isDark)
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
   }
 
   function handleDarkModeToggle() {
@@ -73,6 +67,14 @@ export function AppearanceSettings() {
       const theme = getThemeById(settings.themeId)
       applyTheme(theme, newIsDark)
     }
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
+  }
+
+  function handleGradientToggle() {
+    const newSettings = { ...settings, gradientBg: !settings.gradientBg }
+    setSettings(newSettings)
+    saveSettings(newSettings)
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
   }
 
   function handleColorChange(colorKey: string, value: string) {
@@ -94,6 +96,7 @@ export function AppearanceSettings() {
       const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
       root.style.setProperty(cssVar, val)
     })
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
   }
 
   function handleResetColors() {
@@ -102,6 +105,7 @@ export function AppearanceSettings() {
     saveSettings(newSettings)
     const theme = getThemeById(settings.themeId)
     applyTheme(theme, settings.isDark)
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
   }
 
   return (
@@ -200,6 +204,30 @@ export function AppearanceSettings() {
               </Card>
             ))}
           </div>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Sparkles className={`h-5 w-5 ${settings.gradientBg ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div>
+                  <p className="text-sm font-medium">Анимированный фон</p>
+                  <p className="text-xs text-muted-foreground">Плавные переливания цветов на фоне</p>
+                </div>
+              </div>
+              <button
+                onClick={handleGradientToggle}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  settings.gradientBg ? 'bg-primary' : 'bg-border'
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    settings.gradientBg ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </Card>
         </div>
       )}
 
