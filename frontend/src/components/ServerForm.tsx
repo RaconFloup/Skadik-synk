@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { hostingApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
+import { flagImg, countryName } from '@/lib/flags'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -24,7 +25,7 @@ interface ServerFormProps {
 const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
   purpose: 'NODE',
   hosting: '',
-  country: '🇵🇱 Poland',
+  country: 'pl Poland',
   ip: '',
   ssh_port: 22,
   ssh_username: 'root',
@@ -113,14 +114,32 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData }: ServerF
             disabled={loading}
           >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {formData.country && (() => {
+                  const url = flagImg(formData.country)
+                  return url ? (
+                    <span className="flex items-center gap-1.5">
+                      <img src={url} alt="" className="h-4 w-5 rounded object-cover" />
+                      {countryName(formData.country)}
+                    </span>
+                  ) : (
+                    countryName(formData.country)
+                  )
+                })()}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
+              {COUNTRIES.map((c) => {
+                const url = flagImg(c.value)
+                return (
+                  <SelectItem key={c.value} value={c.value}>
+                    <span className="flex items-center gap-1.5">
+                      {url && <img src={url} alt="" className="h-4 w-5 rounded object-cover" />}
+                      {c.label}
+                    </span>
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
         </div>

@@ -33,6 +33,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -117,5 +118,20 @@
     0%, 100% { transform: translate(50%, 30%) scale(1); }
     33% { transform: translate(20%, 70%) scale(1.2); }
     66% { transform: translate(80%, 40%) scale(0.85); }
+  }
+
+  @keyframes expand-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-expand-in {
+    animation: expand-in 0.2s ease-out;
   }
 }

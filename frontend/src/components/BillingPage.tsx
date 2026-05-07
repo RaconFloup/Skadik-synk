@@ -3,6 +3,7 @@ import type { Server } from '@/types'
 import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2 } from 'lucide-react'
 import { settingsApi, hostingApi } from '@/api/client'
 import type { Hosting } from '@/types'
+import { flagImg, countryName } from '@/lib/flags'
 
 const CURRENCY_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '€' }
 
@@ -237,7 +238,7 @@ export function BillingPage({ servers }: BillingPageProps) {
                                 <span className="h-3.5 w-3.5 rounded shrink-0 bg-accent" />
                               )}
                               <span className={`truncate ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                {s.purpose}
+                                {s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3 w-4 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}
                               </span>
                             </div>
                           ))}
@@ -276,8 +277,7 @@ export function BillingPage({ servers }: BillingPageProps) {
                     return (
                       <div key={s.id} className="flex items-center justify-between rounded-lg bg-accent/30 px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium">{s.purpose} [{s.country}]</span>
-                          <span className="text-xs text-muted-foreground">{s.hosting}</span>
+                          <span className="text-sm font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
                           {isOverdue && (
                             <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
                               <AlertTriangle className="h-3 w-3" />
@@ -357,7 +357,7 @@ export function BillingPage({ servers }: BillingPageProps) {
                     <div className="flex flex-1 items-center gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{s.purpose} [{s.country}]</span>
+                          <span className="font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
                           {isOverdue && (
                             <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
                               <AlertTriangle className="h-3 w-3" />

@@ -48,14 +48,14 @@ export const PURPOSES = [
 ]
 
 export const COUNTRIES = [
-  { value: "🇵🇱 Poland", label: "🇵🇱 Poland" },
-  { value: "🇩🇪 Germany", label: "🇩🇪 Germany" },
-  { value: "🇺🇸 USA", label: "🇺🇸 USA" },
-  { value: "🇷🇺 Russia", label: "🇷🇺 Russia" },
-  { value: "🇳🇱 Netherlands", label: "🇳🇱 Netherlands" },
-  { value: "🇫🇷 France", label: "🇫🇷 France" },
-  { value: "🇬🇧 UK", label: "🇬🇧 UK" },
-  { value: "🇺🇦 Ukraine", label: "🇺🇦 Ukraine" },
+  { value: "pl Poland", label: "Poland" },
+  { value: "de Germany", label: "Germany" },
+  { value: "us USA", label: "USA" },
+  { value: "ru Russia", label: "Russia" },
+  { value: "nl Netherlands", label: "Netherlands" },
+  { value: "fr France", label: "France" },
+  { value: "gb UK", label: "UK" },
+  { value: "ua Ukraine", label: "Ukraine" },
 ]
 
 export const CURRENCIES = [
