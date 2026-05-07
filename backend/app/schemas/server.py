@@ -50,6 +50,7 @@ class ServerResponse(ServerBase):
     id: UUID
     termix_host_id: Optional[str] = None
     google_doc_id: Optional[str] = None
+    needs_sync: bool = True
     created_at: datetime
     updated_at: datetime
 

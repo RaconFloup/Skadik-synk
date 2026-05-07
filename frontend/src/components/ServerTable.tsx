@@ -1,7 +1,7 @@
 import { Server } from '@/types'
 import { Button } from './ui/button'
 import { StatusBadge } from './StatusBadge'
-import { Loader2, MoreHorizontal, Trash2, RefreshCw } from 'lucide-react'
+import { Loader2, MoreHorizontal, Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 interface ServerTableProps {
@@ -9,9 +9,10 @@ interface ServerTableProps {
   onSync: (id: string) => void
   syncingId: string | null
   onDelete: (id: string) => void
+  onEdit: (server: Server) => void
 }
 
-export function ServerTable({ servers, onSync, syncingId, onDelete }: ServerTableProps) {
+export function ServerTable({ servers, onSync, syncingId, onDelete, onEdit }: ServerTableProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   return (
@@ -46,11 +47,19 @@ export function ServerTable({ servers, onSync, syncingId, onDelete }: ServerTabl
               className="group transition-colors hover:bg-accent/20"
             >
               <td className="px-4 py-3">
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-medium text-foreground">{server.purpose}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {server.hosting} • {server.country}
-                  </span>
+                <div className="flex items-center gap-2">
+                  {server.needs_sync && (
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                    </span>
+                  )}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium text-foreground">{server.purpose}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {server.hosting} • {server.country}
+                    </span>
+                  </div>
                 </div>
               </td>
               <td className="px-4 py-3">
@@ -71,8 +80,8 @@ export function ServerTable({ servers, onSync, syncingId, onDelete }: ServerTabl
                 <div className="flex items-center justify-end gap-1">
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0"
+                    variant={server.needs_sync ? 'default' : 'ghost'}
+                    className={'h-7 w-7 p-0 ' + (server.needs_sync ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20' : '')}
                     onClick={() => onSync(server.id)}
                     disabled={syncingId === server.id}
                   >
@@ -95,6 +104,16 @@ export function ServerTable({ servers, onSync, syncingId, onDelete }: ServerTabl
 
                     {openMenuId === server.id && (
                       <div className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border/50 bg-card p-1 shadow-lg">
+                        <button
+                          onClick={() => {
+                            onEdit(server)
+                            setOpenMenuId(null)
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Редактировать
+                        </button>
                         <button
                           onClick={() => {
                             onDelete(server.id)

@@ -18,6 +18,7 @@ export interface Server {
   services?: Record<string, string>
   termix_host_id?: string
   google_doc_id?: string
+  needs_sync: boolean
   created_at: string
   updated_at: string
 }

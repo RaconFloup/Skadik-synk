@@ -47,7 +47,7 @@ async def create_host(server: ServerCreate) -> dict:
                 "password": server.ssh_password,
                 "enableTerminal": True,
                 "enableFileManager": True,
-                "enableDocker": False,
+                "enableDocker": True,
                 "showTerminalInSidebar": True,
                 "showFileManagerInSidebar": False,
                 "showServerStatsInSidebar": True,
@@ -74,6 +74,9 @@ async def update_host(termix_host_id, server: ServerUpdate) -> dict:
                 "username": server.ssh_username,
                 "authType": "password",
                 "password": server.ssh_password,
+                "enableDocker": True,
+                "enableTerminal": True,
+                "enableFileManager": True,
             },
         )
         if response.status_code == 200:

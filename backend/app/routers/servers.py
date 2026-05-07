@@ -93,6 +93,7 @@ def update_server(server_id: UUID, server_data: ServerUpdate, db: Session = Depe
     update_data = server_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(server, field, value)
+    server.needs_sync = True
 
     db.commit()
     db.refresh(server)

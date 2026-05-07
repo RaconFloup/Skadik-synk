@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { hostingApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { ServerCreate, PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
@@ -18,26 +18,43 @@ interface ServerFormProps {
   onSubmit: (data: ServerCreate) => void
   onCancel?: () => void
   loading?: boolean
+  initialData?: ServerCreate
 }
 
-export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
-  const [formData, setFormData] = useState<ServerCreate>({
-    purpose: 'NODE',
-    hosting: '',
-    country: '🇵🇱 Poland',
-    ip: '',
-    ssh_port: 22,
-    ssh_username: 'root',
-    ssh_password: '',
-    traffic: '',
-    cost: undefined,
-    currency: 'USD',
-    cycle: 'monthly',
-    created: new Date().toISOString().split('T')[0],
-    next_payment: '',
-    notes: '',
-  })
+const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
+  purpose: 'NODE',
+  hosting: '',
+  country: '🇵🇱 Poland',
+  ip: '',
+  ssh_port: 22,
+  ssh_username: 'root',
+  ssh_password: '',
+  traffic: '',
+  cost: undefined,
+  currency: 'USD',
+  cycle: 'monthly',
+  created: new Date().toISOString().split('T')[0],
+  next_payment: '',
+  notes: '',
+}
+
+export function ServerForm({ onSubmit, onCancel, loading, initialData }: ServerFormProps) {
+  const [formData, setFormData] = useState<ServerCreate>(() => defaultFormData(initialData))
   const [hostings, setHostings] = useState<Hosting[]>([])
+
+  const hostingOptions = useMemo(() => {
+    const list: Hosting[] = hostings.length > 0
+      ? hostings
+      : HOSTING_SUGGESTIONS.map((n) => ({ id: n, name: n } as Hosting))
+
+    const names = new Set(list.map((h) => h.name))
+
+    if (formData.hosting && !names.has(formData.hosting)) {
+      list.push({ id: formData.hosting, name: formData.hosting } as Hosting)
+    }
+
+    return list
+  }, [hostings, formData.hosting])
 
   useEffect(() => {
     hostingApi.getAll().then(setHostings).catch(() => {})
@@ -135,7 +152,7 @@ export function ServerForm({ onSubmit, onCancel, loading }: ServerFormProps) {
               )}
             </SelectTrigger>
             <SelectContent>
-              {(hostings.length > 0 ? hostings : HOSTING_SUGGESTIONS.map((n) => ({ id: n, name: n } as Hosting))).map((h) => (
+              {hostingOptions.map((h) => (
                 <SelectItem key={h.id} value={h.name}>
                   <div className="flex items-center gap-2">
                     {(h as Hosting).logo_url ? (

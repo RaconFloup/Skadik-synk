@@ -28,6 +28,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [editingServer, setEditingServer] = useState<Server | null>(null)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [activeView, setActiveView] = useState<View>('servers')
@@ -93,6 +94,29 @@ export default function App() {
     loadServers()
     loadActivities()
   }, [])
+
+  const handleEditServer = async (data: ServerCreate) => {
+    if (!editingServer) return
+    setSaving(true)
+    try {
+      const cleanedData = {
+        ...data,
+        traffic: data.traffic || undefined,
+        next_payment: data.next_payment || undefined,
+        notes: data.notes || undefined,
+      }
+      await serversApi.update(editingServer.id, cleanedData)
+      setEditingServer(null)
+      setToast({ message: 'Сервер обновлён', type: 'success' })
+      addActivity('Обновлён сервер: ' + data.purpose + ' [' + data.country + ']')
+      loadServers()
+    } catch (error) {
+      setToast({ message: 'Ошибка при обновлении сервера', type: 'error' })
+      console.error('Failed to update server:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleAddServer = async (data: ServerCreate) => {
     setSaving(true)
@@ -304,12 +328,13 @@ export default function App() {
                   </Button>
                 </div>
               ) : (
-                <ServerTable
-                  servers={servers}
-                  onSync={handleSync}
-                  syncingId={syncingId}
-                  onDelete={(id) => setDeleteServerId(id)}
-                />
+                  <ServerTable
+                    servers={servers}
+                    onSync={handleSync}
+                    syncingId={syncingId}
+                    onDelete={(id) => setDeleteServerId(id)}
+                    onEdit={(server) => setEditingServer(server)}
+                  />
               )}
             </>
           )}
@@ -397,9 +422,44 @@ export default function App() {
             </DialogDescription>
           </DialogHeader>
           <ServerForm
+            key="add"
             onSubmit={handleAddServer}
             onCancel={() => setShowAddDialog(false)}
             loading={saving}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editingServer !== null} onOpenChange={(open) => !open && setEditingServer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Редактировать сервер</DialogTitle>
+            <DialogDescription>
+              Измените информацию о сервере
+            </DialogDescription>
+          </DialogHeader>
+          <ServerForm
+            key={editingServer?.id ?? 'edit'}
+            onSubmit={handleEditServer}
+            onCancel={() => setEditingServer(null)}
+            loading={saving}
+            initialData={editingServer ? {
+              purpose: editingServer.purpose,
+              hosting: editingServer.hosting,
+              country: editingServer.country,
+              ip: editingServer.ip,
+              ssh_port: editingServer.ssh_port,
+              ssh_username: editingServer.ssh_username,
+              ssh_password: editingServer.ssh_password,
+              traffic: editingServer.traffic || '',
+              cost: editingServer.cost,
+              currency: editingServer.currency,
+              cycle: editingServer.cycle,
+              created: editingServer.created || new Date().toISOString().split('T')[0],
+              next_payment: editingServer.next_payment || '',
+              notes: editingServer.notes || '',
+              services: editingServer.services,
+            } : undefined}
           />
         </DialogContent>
       </Dialog>

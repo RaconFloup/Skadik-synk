@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Numeric, Date, DateTime, Text, JSON
+from sqlalchemy import Column, String, Integer, Numeric, Date, DateTime, Text, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 
@@ -28,5 +28,6 @@ class Server(Base):
     services = Column(JSONB, default={})
     termix_host_id = Column(String(255))
     google_doc_id = Column(String(255))
+    needs_sync = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
