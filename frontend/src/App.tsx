@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { serversApi, activityApi, settingsApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
 import type { Server, ServerCreate, ActivityLog, PurposeItem } from '@/types'
 import { DEFAULT_PURPOSES } from '@/types'
@@ -42,16 +43,13 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
   const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
-  const [activeView, setActiveView] = useState<View>(() => {
-    try {
-      const saved = localStorage.getItem('skadik-active-view')
-      if (saved === 'dashboard' || saved === 'servers' || saved === 'billing' || saved === 'activity' || saved === 'settings' || saved === 'faq') {
-        return saved
-      }
-    } catch { /* ignore */ }
-    return 'servers'
-  })
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const viewFromPath = location.pathname === '/' ? 'servers' : location.pathname.split('/')[1]
+  const activeView = (['dashboard', 'servers', 'billing', 'activity', 'settings', 'faq'].includes(viewFromPath) ? viewFromPath : 'servers') as View
+  const rawTab = location.pathname.split('/')[2]
+  const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' ? rawTab : 'general') as SettingsTab
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [gradientBg, setGradientBg] = useState(() => {
@@ -165,12 +163,6 @@ export default function App() {
       }
     }).catch(() => {})
   }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('skadik-active-view', activeView)
-    } catch { /* ignore */ }
-  }, [activeView])
 
   const handleSaveServer = async (id: string, data: Partial<Server>) => {
     setSaving(true)
@@ -290,7 +282,7 @@ export default function App() {
 
       <Sidebar
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={(v) => navigate('/' + v)}
         serverCount={servers.length}
       />
 
@@ -501,7 +493,7 @@ export default function App() {
                 {(['general', 'appearance', 'hostings', 'integrations'] as const).map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setSettingsTab(tab)}
+                    onClick={() => navigate('/settings/' + tab)}
                     className={'flex-1 rounded-md px-3 py-2 text-sm transition-colors ' + (settingsTab === tab
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:text-foreground')}
@@ -527,7 +519,7 @@ export default function App() {
                   <HostingManager />
                 </div>
               )}
-              {settingsTab === 'integrations' && <IntegrationsSettings onViewChange={(v) => setActiveView(v as typeof activeView)} />}
+              {settingsTab === 'integrations' && <IntegrationsSettings onViewChange={(v) => navigate('/' + v)} />}
             </div>
             </div>
           )}
