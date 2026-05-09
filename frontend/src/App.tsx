@@ -37,7 +37,15 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
   const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
-  const [activeView, setActiveView] = useState<View>('servers')
+  const [activeView, setActiveView] = useState<View>(() => {
+    try {
+      const saved = localStorage.getItem('skadik-active-view')
+      if (saved === 'dashboard' || saved === 'servers' || saved === 'billing' || saved === 'activity' || saved === 'settings') {
+        return saved
+      }
+    } catch { /* ignore */ }
+    return 'servers'
+  })
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -108,6 +116,12 @@ export default function App() {
       }
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('skadik-active-view', activeView)
+    } catch { /* ignore */ }
+  }, [activeView])
 
   const handleSaveServer = async (id: string, data: Partial<Server>) => {
     setSaving(true)
@@ -277,6 +291,7 @@ export default function App() {
 
         <main className="flex-1 p-6">
           {activeView === 'dashboard' && (
+            <div key="dashboard" className="animate-view-enter">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="rounded-lg border border-border/50 bg-card p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -300,10 +315,11 @@ export default function App() {
                 <p className="mt-2 text-3xl font-bold">{activities.length}</p>
               </div>
             </div>
+            </div>
           )}
 
           {activeView === 'servers' && (
-            <>
+            <div key="servers" className="animate-view-enter">
               {activities.length > 0 && (
                 <div className="mb-4 rounded-lg border border-border/50 bg-card/50 px-4 py-2">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -351,14 +367,17 @@ export default function App() {
                     purposes={purposes}
                   />
               )}
-            </>
+            </div>
           )}
 
           {activeView === 'billing' && (
-            <BillingPage servers={servers} onServersChange={loadServers} />
+            <div key="billing" className="animate-view-enter">
+              <BillingPage servers={servers} onServersChange={loadServers} />
+            </div>
           )}
 
           {activeView === 'activity' && (
+            <div key="activity" className="animate-view-enter">
             <div className="space-y-2">
               {activities.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -383,9 +402,11 @@ export default function App() {
                 ))
               )}
             </div>
+            </div>
           )}
 
           {activeView === 'settings' && (
+            <div key="settings" className="animate-view-enter">
             <div>
               <div className="mb-6 flex gap-1 rounded-lg border border-border/50 bg-card p-1">
                 {(['general', 'appearance', 'hostings', 'integrations'] as const).map((tab) => (
@@ -418,6 +439,7 @@ export default function App() {
                 </div>
               )}
               {settingsTab === 'integrations' && <IntegrationsSettings />}
+            </div>
             </div>
           )}
         </main>

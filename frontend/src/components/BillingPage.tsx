@@ -16,6 +16,38 @@ import { flagImg, countryName } from '@/lib/flags'
 
 const CURRENCY_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '€' }
 
+const RATES_CACHE_KEY = 'skadik-exchange-rates'
+const RATES_CACHE_TTL = 3600000
+
+interface RatesCache {
+  rates: Record<string, number>
+  timestamp: number
+}
+
+function loadCachedRates(): Record<string, number> | null {
+  try {
+    const raw = localStorage.getItem(RATES_CACHE_KEY)
+    if (!raw) return null
+    const cache: RatesCache = JSON.parse(raw)
+    if (Date.now() - cache.timestamp > RATES_CACHE_TTL) {
+      localStorage.removeItem(RATES_CACHE_KEY)
+      return null
+    }
+    return cache.rates
+  } catch {
+    return null
+  }
+}
+
+function saveCachedRates(rates: Record<string, number>) {
+  try {
+    const cache: RatesCache = { rates, timestamp: Date.now() }
+    localStorage.setItem(RATES_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 interface BillingPageProps {
   servers: Server[]
   onServersChange?: () => void
@@ -62,13 +94,21 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [hostingLogoMap, setHostingLogoMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    const cached = loadCachedRates()
+    if (cached) {
+      setRates(cached)
+    }
+
     Promise.all([
       settingsApi.getAll().catch(() => ({ base_currency: 'RUB' })),
-      fetch('https://api.exchangerate-api.com/v4/latest/USD').then((r) => r.json()).catch(() => null),
+      cached ? Promise.resolve(null) : fetch('https://api.exchangerate-api.com/v4/latest/USD').then((r) => r.json()).catch(() => null),
       hostingApi.getAll().catch(() => [] as Hosting[]),
     ]).then(([settings, data, hostings]) => {
       if (settings.base_currency) setBaseCurrency(settings.base_currency)
-      if (data?.rates) setRates(data.rates)
+      if (data?.rates) {
+        setRates(data.rates)
+        saveCachedRates(data.rates)
+      }
       const map: Record<string, string> = {}
       hostings.forEach((h) => { if (h.name) map[h.name] = h.logo_url || '' })
       setHostingLogoMap(map)

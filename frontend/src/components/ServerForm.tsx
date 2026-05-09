@@ -31,7 +31,6 @@ const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
   ssh_port: 22,
   ssh_username: 'root',
   ssh_password: '',
-  traffic: '',
   cost: undefined,
   currency: 'USD',
   cycle: 'monthly',
@@ -287,15 +286,6 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes 
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Трафик</label>
-          <Input
-            value={formData.traffic}
-            onChange={(e) => updateField('traffic', e.target.value)}
-            placeholder="Безлимит"
-            disabled={loading}
-          />
-        </div>
-        <div>
           <label className="block text-sm font-medium mb-1">Дата аренды</label>
           <Input
             type="date"
@@ -304,9 +294,6 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes 
             disabled={loading}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Следующая оплата</label>
           <Input
@@ -316,6 +303,9 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes 
             disabled={loading}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Заметки</label>
           <Textarea
