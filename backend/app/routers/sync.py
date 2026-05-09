@@ -6,7 +6,6 @@ from app.database import get_db
 from app.models.server import Server
 from app.schemas.server import ServerCreate
 from app.services import termix, google_drive
-from datetime import date
 
 router = APIRouter(prefix="/api/servers", tags=["sync"])
 
