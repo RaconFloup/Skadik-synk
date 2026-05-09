@@ -10,11 +10,8 @@ interface GeneralSettingsProps {
   onPurposesChange?: (purposes: PurposeItem[]) => void
 }
 
-const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
-
 export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
   const [baseCurrency, setBaseCurrency] = useState('RUB')
-  const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
   const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -27,9 +24,6 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
   useEffect(() => {
     settingsApi.getAll().then((s) => {
       if (s.base_currency) setBaseCurrency(s.base_currency)
-      if (s.purpose_order) {
-        try { setPurposeOrder(JSON.parse(s.purpose_order)) } catch {}
-      }
       if (s.purposes) {
         try {
           const parsed: PurposeItem[] = JSON.parse(s.purposes)
@@ -42,7 +36,11 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
   const savePurposes = async (updated: PurposeItem[]) => {
     setSaving(true)
     try {
-      await settingsApi.update({ purposes: JSON.stringify(updated) })
+      const order = updated.map((p) => p.value)
+      await settingsApi.update({
+        purposes: JSON.stringify(updated),
+        purpose_order: JSON.stringify(order),
+      })
       setPurposes(updated)
       onPurposesChange?.(updated)
     } finally {
@@ -59,27 +57,18 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
     }
   }
 
-  const handleSaveOrder = async () => {
-    setSaving(true)
-    try {
-      await settingsApi.update({ purpose_order: JSON.stringify(purposeOrder) })
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const moveUp = (index: number) => {
     if (index === 0) return
-    const next = [...purposeOrder]
+    const next = [...purposes]
     ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-    setPurposeOrder(next)
+    savePurposes(next)
   }
 
   const moveDown = (index: number) => {
-    if (index === purposeOrder.length - 1) return
-    const next = [...purposeOrder]
+    if (index === purposes.length - 1) return
+    const next = [...purposes]
     ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
-    setPurposeOrder(next)
+    savePurposes(next)
   }
 
   const handleAdd = () => {
@@ -87,19 +76,13 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
     const label = newLabel.trim() || value
     if (!value) return
     if (purposes.some((p) => p.value === value)) return
-    const updated = [...purposes, { value, label }]
-    savePurposes(updated)
+    savePurposes([...purposes, { value, label }])
     setNewValue('')
     setNewLabel('')
-    if (!purposeOrder.includes(value)) {
-      setPurposeOrder([...purposeOrder, value])
-    }
   }
 
   const handleDelete = (value: string) => {
-    const updated = purposes.filter((p) => p.value !== value)
-    savePurposes(updated)
-    setPurposeOrder(purposeOrder.filter((v) => v !== value))
+    savePurposes(purposes.filter((p) => p.value !== value))
   }
 
   const startEdit = (index: number) => {
@@ -117,13 +100,11 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
   const saveEdit = () => {
     if (editingIndex === null) return
     const updated = [...purposes]
-    const oldValue = updated[editingIndex].value
     updated[editingIndex] = {
-      value: editValue.trim().toUpperCase() || oldValue,
-      label: editLabel.trim() || editValue.trim().toUpperCase() || oldValue,
+      value: editValue.trim().toUpperCase() || updated[editingIndex].value,
+      label: editLabel.trim() || editValue.trim().toUpperCase() || updated[editingIndex].label,
     }
     savePurposes(updated)
-    setPurposeOrder(purposeOrder.map((v) => v === oldValue ? updated[editingIndex].value : v))
     cancelEdit()
   }
 
@@ -167,7 +148,7 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
       <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm max-w-md">
         <label className="block text-sm font-medium mb-2">Назначения</label>
         <p className="mb-3 text-xs text-muted-foreground">
-          Список назначений серверов (добавление, редактирование, удаление)
+          Серверы в списке будут сгруппированы в этом порядке. Можно добавлять, редактировать и удалять назначения.
         </p>
 
         <div className="space-y-1">
@@ -205,6 +186,20 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
                   </span>
                   <div className="flex items-center gap-0.5">
                     <button
+                      onClick={() => moveUp(index)}
+                      disabled={index === 0 || saving}
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => moveDown(index)}
+                      disabled={index === purposes.length - 1 || saving}
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => startEdit(index)}
                       className="rounded p-0.5 text-muted-foreground hover:text-foreground"
                     >
@@ -241,46 +236,6 @@ export function GeneralSettings({ onPurposesChange }: GeneralSettingsProps) {
             Добавить
           </Button>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm max-w-md">
-        <label className="block text-sm font-medium mb-2">Порядок назначений</label>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Серверы в списке будут сгруппированы в этом порядке
-        </p>
-        <div className="space-y-1">
-          {purposeOrder.map((value, index) => {
-            const purpose = purposes.find((p) => p.value === value)
-            return (
-              <div
-                key={value}
-                className="flex items-center justify-between rounded-lg border border-border/50 bg-background px-3 py-2"
-              >
-                <span className="text-sm font-medium">{purpose?.label || value}</span>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => moveUp(index)}
-                    disabled={index === 0}
-                    className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => moveDown(index)}
-                    disabled={index === purposeOrder.length - 1}
-                    className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <Button className="mt-4" size="sm" onClick={handleSaveOrder} disabled={saving}>
-          {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-          Сохранить порядок
-        </Button>
       </div>
     </div>
   )
