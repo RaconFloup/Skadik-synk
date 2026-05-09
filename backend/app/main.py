@@ -7,6 +7,7 @@ from app.routers.activity import router as activity_router
 from app.routers.hostings import router as hostings_router
 from app.routers.settings import router as settings_router
 from app.routers.telegram import router as telegram_router
+from app.routers.exchange_rates import router as exchange_rates_router
 
 app = FastAPI(title="Skadik Synk API", version="1.0.0")
 
@@ -24,6 +25,7 @@ app.include_router(activity_router)
 app.include_router(hostings_router)
 app.include_router(settings_router)
 app.include_router(telegram_router)
+app.include_router(exchange_rates_router)
 
 
 @app.on_event("startup")

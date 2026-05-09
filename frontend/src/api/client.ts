@@ -36,6 +36,11 @@ export const settingsApi = {
   update: (data: Record<string, string>) => api.put<Record<string, string>>('/settings', data).then(res => res.data),
 }
 
+export const exchangeRatesApi = {
+  get: () => api.get<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates').then(res => res.data),
+  refresh: () => api.post<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates/refresh').then(res => res.data),
+}
+
 export const telegramApi = {
   fetchAvatar: (botUsername: string) =>
     api.post<{ logo_url: string }>('/telegram/fetch-avatar', { bot_username: botUsername }).then(res => res.data),
