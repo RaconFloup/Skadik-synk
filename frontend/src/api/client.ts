@@ -44,6 +44,11 @@ export function clearAuthToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY)
+  authFailCallback?.()
+}
+
 export const authApi = {
   login: (password: string) => api.post<{ token: string }>('/auth/login', { password }).then(res => res.data),
   verify: () => api.post('/auth/verify').then(res => res.data),
@@ -83,6 +88,10 @@ export const settingsApi = {
 export const exchangeRatesApi = {
   get: () => api.get<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates').then(res => res.data),
   refresh: () => api.post<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates/refresh').then(res => res.data),
+}
+
+export const brandingApi = {
+  get: () => api.get<Record<string, string>>('/settings/public').then(res => res.data),
 }
 
 export const telegramApi = {

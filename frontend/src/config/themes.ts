@@ -299,6 +299,23 @@ export interface ThemeSettings {
   gradientBg: boolean
   customColors: Record<string, string>
   useCustomColors: boolean
+  appLogo?: string
+  appName?: string
+}
+
+export function updateFavicon(dataUrl: string) {
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.href = dataUrl
+}
+
+export function clearFavicon() {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (link) link.remove()
 }
 
 export function loadAndApplyTheme() {

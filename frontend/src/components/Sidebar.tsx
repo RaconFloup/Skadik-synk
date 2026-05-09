@@ -1,14 +1,19 @@
 import { useState } from 'react'
-import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard, HelpCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard, HelpCircle, LogOut } from 'lucide-react'
+import { logout } from '@/api/client'
 
 interface SidebarProps {
   activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq'
   onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq') => void
   serverCount: number
+  appLogo?: string
+  appName?: string
 }
 
-export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, serverCount, appLogo, appName }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const navigate = useNavigate()
 
   const navItems = [
     { id: 'dashboard' as const, icon: LayoutDashboard, label: 'Дашборд' },
@@ -27,9 +32,13 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
     >
       <div className="flex h-14 items-center justify-between border-b border-border/50 px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-foreground">Skadik</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {appLogo ? (
+              <img src={appLogo} alt="" className="h-6 w-6 shrink-0 rounded object-contain" />
+            ) : (
+              <Globe className="h-5 w-5 shrink-0 text-primary" />
+            )}
+            <span className="font-semibold text-foreground truncate">{appName || 'Skadik Synk'}</span>
           </div>
         )}
         <button
@@ -69,6 +78,16 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
           </button>
         ))}
       </nav>
+
+      <div className="border-t border-border/50 p-2">
+        <button
+          onClick={() => { logout(); navigate('/') }}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Выйти</span>}
+        </button>
+      </div>
     </div>
   )
 }

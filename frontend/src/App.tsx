@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { serversApi, activityApi, settingsApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
+import { serversApi, activityApi, settingsApi, brandingApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
 import type { Server, ServerCreate, ActivityLog, PurposeItem } from '@/types'
 import { DEFAULT_PURPOSES } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon
 import { countryName } from '@/lib/flags'
 import { exchangeRatesApi } from '@/api/client'
 import { dispatchRatesUpdated } from '@/lib/utils'
+import { updateFavicon } from '@/config/themes'
 
 type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings' | 'faq'
 type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
@@ -62,6 +63,8 @@ export default function App() {
     } catch {}
     return true
   })
+  const [appLogo, setAppLogo] = useState<string | undefined>(() => localStorage.getItem('skadik-brand-logo') || undefined)
+  const [appName, setAppName] = useState<string | undefined>(() => localStorage.getItem('skadik-brand-name') || undefined)
 
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
   const [baseCurrency, setBaseCurrency] = useState('RUB')
@@ -104,6 +107,21 @@ export default function App() {
   }, [loadRates])
 
   useEffect(() => {
+    brandingApi.get().then((data) => {
+      if (data.app_logo) {
+        setAppLogo(data.app_logo)
+        localStorage.setItem('skadik-brand-logo', data.app_logo)
+        updateFavicon(data.app_logo)
+      }
+      if (data.app_name) {
+        setAppName(data.app_name)
+        localStorage.setItem('skadik-brand-name', data.app_name)
+        document.title = data.app_name
+      }
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     setAuthFailureCallback(() => setAuthenticated(false))
   }, [])
 
@@ -112,6 +130,12 @@ export default function App() {
       const detail = (e as CustomEvent).detail
       if (detail && typeof detail.gradientBg === 'boolean') {
         setGradientBg(detail.gradientBg)
+      }
+      if (detail && 'appLogo' in detail) {
+        setAppLogo(detail.appLogo)
+      }
+      if (detail && 'appName' in detail) {
+        setAppName(detail.appName)
       }
     }
     window.addEventListener('theme-changed', handler)
@@ -152,6 +176,7 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!authenticated) return
     loadServers()
     loadActivities()
     settingsApi.getAll().then((s) => {
@@ -162,7 +187,7 @@ export default function App() {
         try { setPurposes(JSON.parse(s.purposes)) } catch {}
       }
     }).catch(() => {})
-  }, [])
+  }, [authenticated])
 
   const handleSaveServer = async (id: string, data: Partial<Server>) => {
     setSaving(true)
@@ -260,7 +285,7 @@ export default function App() {
   const activeCount = servers.filter((s) => s.status === 'active').length
 
   if (!authenticated) {
-    return <LoginPage onLogin={(token) => { setAuthToken(token); setAuthenticated(true) }} />
+    return <LoginPage onLogin={(token) => { setAuthToken(token); setAuthenticated(true) }} appLogo={appLogo} appName={appName} />
   }
 
   return (
@@ -284,6 +309,8 @@ export default function App() {
         activeView={activeView}
         onViewChange={(v) => navigate('/' + v)}
         serverCount={servers.length}
+        appLogo={appLogo}
+        appName={appName}
       />
 
       <div className="flex flex-1 flex-col">

@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from app.config import settings
 
 ALGORITHM = "HS256"
-OPEN_PATHS = {"/api/auth/login", "/api/auth/verify", "/api/health", "/docs", "/openapi.json"}
+OPEN_PATHS = {"/api/auth/login", "/api/auth/verify", "/api/settings/public", "/api/health", "/docs", "/openapi.json"}
 
 
 async def auth_middleware(request: Request, call_next):

@@ -5,9 +5,11 @@ import { Loader2, ServerIcon } from 'lucide-react'
 
 interface LoginPageProps {
   onLogin: (token: string) => void
+  appLogo?: string
+  appName?: string
 }
 
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin, appLogo, appName }: LoginPageProps) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -48,9 +50,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       >
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="rounded-full bg-accent/50 p-3">
-            <ServerIcon className="h-8 w-8 text-primary" />
+            {appLogo ? (
+              <img src={appLogo} alt="" className="h-8 w-8 rounded object-contain" />
+            ) : (
+              <ServerIcon className="h-8 w-8 text-primary" />
+            )}
           </div>
-          <h1 className="text-xl font-semibold">Skadik Synk</h1>
+          <h1 className="text-xl font-semibold">{appName || 'Skadik Synk'}</h1>
           <p className="text-sm text-muted-foreground">Введите пароль для входа</p>
         </div>
 

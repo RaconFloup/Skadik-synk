@@ -3,7 +3,7 @@ import { settingsApi } from '@/api/client'
 import api from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, MessageCircle, CheckCircle2, XCircle, Terminal, HardDrive, HelpCircle } from 'lucide-react'
+import { Loader2, MessageCircle, CheckCircle2, XCircle, Terminal, HardDrive, HelpCircle, Globe } from 'lucide-react'
 
 interface IntegrationCardProps {
   icon: React.ReactNode
@@ -83,6 +83,10 @@ export function IntegrationsSettings({ onViewChange }: { onViewChange?: (view: s
   const [tgStored, setTgStored] = useState('')
   const [testingTg, setTestingTg] = useState(false)
   const [testResultTg, setTestResultTg] = useState<TestResult | null>(null)
+  const [socks5Proxy, setSocks5Proxy] = useState('')
+  const [socks5ProxyStored, setSocks5ProxyStored] = useState('')
+  const [testingSocks5, setTestingSocks5] = useState(false)
+  const [testResultSocks5, setTestResultSocks5] = useState<TestResult | null>(null)
 
   const [tmUrl, setTmUrl] = useState('')
   const [tmUser, setTmUser] = useState('')
@@ -102,6 +106,9 @@ export function IntegrationsSettings({ onViewChange }: { onViewChange?: (view: s
       const t = s.telegram_bot_token || ''
       setTgToken(t)
       setTgStored(t)
+      const proxy = s.socks5_proxy || ''
+      setSocks5Proxy(proxy)
+      setSocks5ProxyStored(proxy)
 
       const termixUrl = s.termix_url || ''
       const termixUsername = s.termix_username || ''
@@ -143,6 +150,27 @@ export function IntegrationsSettings({ onViewChange }: { onViewChange?: (view: s
       await settingsApi.update({ google_script_url: gdUrl, google_folder_id: gdFolder })
       setGdStored({ script_url: gdUrl, folder_id: gdFolder })
     } finally { setSaving(null) }
+  }
+
+  const handleSaveSocks5 = async () => {
+    setSaving('socks5')
+    try {
+      await settingsApi.update({ socks5_proxy: socks5Proxy })
+      setSocks5ProxyStored(socks5Proxy)
+    } finally { setSaving(null) }
+  }
+
+  const handleTestSocks5 = async () => {
+    setTestingSocks5(true)
+    setTestResultSocks5(null)
+    try {
+      const res = await api.post('/settings/socks5-test')
+      setTestResultSocks5({ ok: res.data.ok, error: res.data.error })
+    } catch (err: any) {
+      setTestResultSocks5({ ok: false, error: err?.response?.data?.detail || 'Ошибка' })
+    } finally {
+      setTestingSocks5(false)
+    }
   }
 
   const handleTestTg = async () => {
@@ -214,19 +242,36 @@ export function IntegrationsSettings({ onViewChange }: { onViewChange?: (view: s
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <IntegrationCard
           icon={<MessageCircle className="h-5 w-5 text-sky-400" />}
           title="Telegram Bot"
           description="Токен используется для загрузки аватаров Telegram-ботов"
-          fields={[{ key: 'bot_token', label: 'Bot Token', placeholder: '1234567890:ABCdefGHIjklmNOPqrSTUvwXYZ', type: 'password' }]}
+          fields={[
+            { key: 'bot_token', label: 'Bot Token', placeholder: '1234567890:ABCdefGHIjklmNOPqrSTUvwXYZ', type: 'password' },
+          ]}
           stored={{ bot_token: tgStored }}
           values={{ bot_token: tgToken }}
-          onChange={(_, v) => setTgToken(v)}
+          onChange={(_k, v) => setTgToken(v)}
           onSave={handleSaveTelegram}
           saving={saving === 'telegram'}
           actions={<TestButton testing={testingTg} result={testResultTg} onClick={handleTestTg} disabled={!tgStored} />}
           onHelp={() => onViewChange?.('faq')}
+        />
+
+        <IntegrationCard
+          icon={<Globe className="h-5 w-5 text-neutral-400" />}
+          title="SOCKS5 Прокси"
+          description="Используется для обхода блокировок (Telegram и др.)"
+          fields={[
+            { key: 'proxy', label: 'Адрес прокси', placeholder: 'socks5://user:pass@127.0.0.1:1080' },
+          ]}
+          stored={{ proxy: socks5ProxyStored }}
+          values={{ proxy: socks5Proxy }}
+          onChange={(_k, v) => setSocks5Proxy(v)}
+          onSave={handleSaveSocks5}
+          saving={saving === 'socks5'}
+          actions={<TestButton testing={testingSocks5} result={testResultSocks5} onClick={handleTestSocks5} disabled={!socks5ProxyStored} />}
         />
 
         <IntegrationCard

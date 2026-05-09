@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { themes, getThemeById, applyTheme, STORAGE_KEY } from '@/config/themes'
+import { useState, useRef, useEffect } from 'react'
+import { themes, getThemeById, applyTheme, updateFavicon, clearFavicon, STORAGE_KEY } from '@/config/themes'
 import type { ThemeSettings } from '@/config/themes'
+import { brandingApi, settingsApi } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Palette, Sun, Moon, Sparkles } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Palette, Sun, Moon, Sparkles, Image, Upload, Trash2, Type } from 'lucide-react'
 
 function loadSettings(): ThemeSettings {
   try {
@@ -40,7 +42,20 @@ const colorLabels: Record<string, string> = {
 
 export function AppearanceSettings() {
   const [settings, setSettings] = useState<ThemeSettings>(loadSettings)
-  const [activeTab, setActiveTab] = useState<'themes' | 'colors'>('themes')
+  const [activeTab, setActiveTab] = useState<'themes' | 'colors' | 'branding'>('themes')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    brandingApi.get().then((data) => {
+      if (data.app_logo || data.app_name) {
+        setSettings((prev) => ({
+          ...prev,
+          appLogo: data.app_logo || undefined,
+          appName: data.app_name || undefined,
+        }))
+      }
+    }).catch(() => {})
+  }, [])
 
   function handleThemeChange(themeId: string) {
     const newSettings = { ...settings, themeId, useCustomColors: false }
@@ -139,6 +154,17 @@ export function AppearanceSettings() {
         >
           <Palette className="h-4 w-4" />
           Цвета
+        </button>
+        <button
+          onClick={() => setActiveTab('branding')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'branding'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Image className="h-4 w-4" />
+          Брендинг
         </button>
       </div>
 
@@ -283,6 +309,100 @@ export function AppearanceSettings() {
               <div className="rounded-lg border border-border/50 p-3">
                 <p className="text-sm font-medium">Пример карточки</p>
                 <p className="text-xs text-muted-foreground">Текст с пояснением</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'branding' && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium">Брендинг</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Настройте логотип и название приложения
+            </p>
+          </div>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-accent/30">
+                {settings.appLogo ? (
+                  <img src={settings.appLogo} alt="Logo" className="h-12 w-12 rounded object-contain" />
+                ) : (
+                  <Image className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      const dataUrl = reader.result as string
+                      settingsApi.update({ app_logo: dataUrl }).then(() => {
+                        const newSettings = { ...settings, appLogo: dataUrl }
+                        setSettings(newSettings)
+                        localStorage.setItem('skadik-brand-logo', dataUrl)
+                        updateFavicon(dataUrl)
+                        window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
+                      }).catch(() => alert('Ошибка при сохранении логотипа'))
+                    }
+                    reader.readAsDataURL(file)
+                    e.target.value = ''
+                  }} />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1">
+                    <Upload className="h-4 w-4" />
+                    Загрузить логотип
+                  </Button>
+                  {settings.appLogo && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      settingsApi.update({ app_logo: '' }).then(() => {
+                        const newSettings = { ...settings, appLogo: undefined }
+                        setSettings(newSettings)
+                        localStorage.removeItem('skadik-brand-logo')
+                        clearFavicon()
+                        window.dispatchEvent(new CustomEvent('theme-changed', { detail: newSettings }))
+                      }).catch(() => alert('Ошибка при удалении логотипа'))
+                    }} className="flex items-center gap-1 text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                      Удалить
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Логотип будет отображаться на странице входа, в боковом меню и в favicon
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <Type className="h-5 w-5 text-muted-foreground" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">Название приложения</label>
+                <Input value={settings.appName || ''} placeholder="Skadik Synk"
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSettings({ ...settings, appName: val || '' })
+                    const trimmed = val.trim()
+                    settingsApi.update({ app_name: trimmed }).then(() => {
+                      if (trimmed) {
+                        document.title = trimmed
+                        localStorage.setItem('skadik-brand-name', trimmed)
+                      } else {
+                        localStorage.removeItem('skadik-brand-name')
+                      }
+                      window.dispatchEvent(new CustomEvent('theme-changed', { detail: { ...settings, appName: trimmed || undefined } }))
+                    }).catch(() => alert('Ошибка при сохранении названия'))
+                  }} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Отображается в заголовке страницы, боковом меню и на странице входа
+                </p>
               </div>
             </div>
           </Card>
