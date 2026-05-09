@@ -1,6 +1,7 @@
 import httpx
 import json
-from app.config import settings
+from sqlalchemy.orm import Session
+from app.models.setting import AppSetting
 
 COUNTRY_FLAGS = {
     "🇵🇱 Poland": "🇵🇱 Poland",
@@ -97,8 +98,18 @@ ssh {ssh_username}@{ip}
 """
 
 
-async def create_google_doc(server: dict) -> dict:
+def _read_settings(db: Session) -> dict:
+    rows = db.query(AppSetting).filter(
+        AppSetting.key.in_(["google_script_url", "google_folder_id"])
+    ).all()
+    return {row.key: row.value for row in rows}
+
+
+async def create_google_doc(server: dict, db: Session) -> dict:
     try:
+        s = _read_settings(db)
+        script_url = s.get("google_script_url", "")
+        folder_id = s.get("google_folder_id", "")
         purpose = server.get("purpose", "Unknown")
         country_flag = COUNTRY_FLAGS.get(server.get("country", ""), server.get("country", ""))
         hosting = server.get("hosting", "Unknown")
@@ -108,14 +119,14 @@ async def create_google_doc(server: dict) -> dict:
         
         payload = json.dumps({
             "action": "create",
-            "folderId": settings.GOOGLE_FOLDER_ID,
+            "folderId": folder_id,
             "name": filename,
             "content": content
         }).encode('utf-8')
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                settings.GOOGLE_SCRIPT_URL,
+                script_url,
                 content=payload,
                 headers={
                     "Content-Type": "application/json",
@@ -135,8 +146,10 @@ async def create_google_doc(server: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def update_google_doc(file_id: str, server: dict) -> dict:
+async def update_google_doc(file_id: str, server: dict, db: Session) -> dict:
     try:
+        s = _read_settings(db)
+        script_url = s.get("google_script_url", "")
         content = generate_md_content(server)
         purpose = server.get("purpose", "Unknown")
         country_flag = COUNTRY_FLAGS.get(server.get("country", ""), server.get("country", ""))
@@ -152,7 +165,7 @@ async def update_google_doc(file_id: str, server: dict) -> dict:
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                settings.GOOGLE_SCRIPT_URL,
+                script_url,
                 content=payload,
                 headers={
                     "Content-Type": "application/json",
@@ -169,8 +182,10 @@ async def update_google_doc(file_id: str, server: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def delete_google_doc(file_id: str) -> dict:
+async def delete_google_doc(file_id: str, db: Session) -> dict:
     try:
+        s = _read_settings(db)
+        script_url = s.get("google_script_url", "")
         payload = json.dumps({
             "action": "delete",
             "fileId": file_id
@@ -178,7 +193,7 @@ async def delete_google_doc(file_id: str) -> dict:
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                settings.GOOGLE_SCRIPT_URL,
+                script_url,
                 content=payload,
                 headers={
                     "Content-Type": "application/json",

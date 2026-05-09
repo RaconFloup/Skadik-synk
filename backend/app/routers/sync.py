@@ -30,7 +30,7 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
                     "ssh_port": server.ssh_port,
                     "ssh_username": server.ssh_username,
                     "ssh_password": server.ssh_password
-                }))
+                }), db)
             else:
                 termix_result = await termix.create_host(ServerCreate(**{
                     "purpose": server.purpose,
@@ -40,7 +40,7 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
                     "ssh_port": server.ssh_port,
                     "ssh_username": server.ssh_username,
                     "ssh_password": server.ssh_password
-                }))
+                }), db)
                 if termix_result.get("success"):
                     server.termix_host_id = termix_result.get("host_id")
             results["termix"] = termix_result
@@ -66,7 +66,7 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
                     "next_payment": server.next_payment.strftime("%Y-%m-%d") if server.next_payment else "",
                     "notes": server.notes or "",
                     "services": server.services
-                })
+                }, db)
             else:
                 gd_result = await google_drive.create_google_doc({
                     "purpose": server.purpose,
@@ -84,7 +84,7 @@ async def sync_all(server_id: UUID, db: Session = Depends(get_db)):
                     "next_payment": server.next_payment.strftime("%Y-%m-%d") if server.next_payment else "",
                     "notes": server.notes or "",
                     "services": server.services
-                })
+                }, db)
                 if gd_result.get("success"):
                     server.google_doc_id = gd_result.get("file_id")
             results["google_drive"] = gd_result
@@ -113,7 +113,7 @@ async def sync_termix(server_id: UUID, db: Session = Depends(get_db)):
                 "ssh_port": server.ssh_port,
                 "ssh_username": server.ssh_username,
                 "ssh_password": server.ssh_password
-            }))
+            }), db)
         else:
             result = await termix.create_host(ServerCreate(**{
                 "purpose": server.purpose,
@@ -123,7 +123,7 @@ async def sync_termix(server_id: UUID, db: Session = Depends(get_db)):
                 "ssh_port": server.ssh_port,
                 "ssh_username": server.ssh_username,
                 "ssh_password": server.ssh_password
-            }))
+            }), db)
         if result.get("success"):
             server.needs_sync = False
             db.commit()
@@ -159,7 +159,7 @@ async def sync_gdrive(server_id: UUID, db: Session = Depends(get_db)):
                 "next_payment": server.next_payment.strftime("%Y-%m-%d") if server.next_payment else "",
                 "notes": server.notes,
                 "services": server.services
-            })
+            }, db)
             if result.get("success"):
                 server.needs_sync = False
                 db.commit()
@@ -184,7 +184,7 @@ async def sync_gdrive(server_id: UUID, db: Session = Depends(get_db)):
             "next_payment": server.next_payment.strftime("%Y-%m-%d") if server.next_payment else "",
             "notes": server.notes,
             "services": server.services
-        })
+        }, db)
         if result.get("success"):
             server.google_doc_id = result.get("file_id")
             server.needs_sync = False

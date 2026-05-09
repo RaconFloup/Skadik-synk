@@ -8,6 +8,8 @@ from app.routers.hostings import router as hostings_router
 from app.routers.settings import router as settings_router
 from app.routers.telegram import router as telegram_router
 from app.routers.exchange_rates import router as exchange_rates_router
+from app.routers.auth import router as auth_router
+from app.dependencies.auth import auth_middleware
 
 app = FastAPI(title="Skadik Synk API", version="1.0.0")
 
@@ -19,6 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.middleware("http")(auth_middleware)
+
 app.include_router(servers_router)
 app.include_router(sync_router)
 app.include_router(activity_router)
@@ -26,6 +30,7 @@ app.include_router(hostings_router)
 app.include_router(settings_router)
 app.include_router(telegram_router)
 app.include_router(exchange_rates_router)
+app.include_router(auth_router)
 
 
 @app.on_event("startup")

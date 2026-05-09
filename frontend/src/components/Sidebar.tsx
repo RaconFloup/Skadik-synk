@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard } from 'lucide-react'
+import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard, HelpCircle } from 'lucide-react'
 
 interface SidebarProps {
-  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing'
-  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing') => void
+  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq'
+  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq') => void
   serverCount: number
 }
 
@@ -16,6 +16,7 @@ export function Sidebar({ activeView, onViewChange, serverCount }: SidebarProps)
     { id: 'billing' as const, icon: CreditCard, label: 'Биллинг' },
     { id: 'activity' as const, icon: Activity, label: 'Активность' },
     { id: 'settings' as const, icon: Settings, label: 'Настройки' },
+    { id: 'faq' as const, icon: HelpCircle, label: 'FAQ' },
   ]
 
   return (

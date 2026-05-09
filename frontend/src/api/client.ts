@@ -1,9 +1,53 @@
 import axios from 'axios'
 import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting } from '@/types'
 
+const TOKEN_KEY = 'skadik-auth-token'
+
+let authFailCallback: (() => void) | null = null
+
+export function setAuthFailureCallback(fn: () => void) {
+  authFailCallback = fn
+}
+
 const api = axios.create({
   baseURL: '/api',
 })
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      authFailCallback?.()
+    }
+    return Promise.reject(error)
+  }
+)
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setAuthToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export const authApi = {
+  login: (password: string) => api.post<{ token: string }>('/auth/login', { password }).then(res => res.data),
+  verify: () => api.post('/auth/verify').then(res => res.data),
+}
 
 export const serversApi = {
   getAll: () => api.get<Server[]>('/servers').then(res => res.data),

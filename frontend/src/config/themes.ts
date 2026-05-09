@@ -302,6 +302,8 @@ export interface ThemeSettings {
 }
 
 export function loadAndApplyTheme() {
+  const defaultTheme = getThemeById('green')
+  applyTheme(defaultTheme, false)
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -318,8 +320,8 @@ export function loadAndApplyTheme() {
           root.style.setProperty(cssVar, value)
         })
       } else {
-        const theme = getThemeById(settings.themeId)
-        applyTheme(theme, settings.isDark)
+        const theme = getThemeById(settings.themeId || 'green')
+        applyTheme(theme, settings.isDark ?? false)
       }
     }
   } catch (e) {

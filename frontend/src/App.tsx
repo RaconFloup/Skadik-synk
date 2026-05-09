@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { serversApi, activityApi, settingsApi } from '@/api/client'
+import { serversApi, activityApi, settingsApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
 import type { Server, ServerCreate, ActivityLog, PurposeItem } from '@/types'
 import { DEFAULT_PURPOSES } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -19,17 +19,20 @@ import { GeneralSettings } from '@/components/GeneralSettings'
 import { HostingManager } from '@/components/HostingManager'
 import { BillingPage } from '@/components/BillingPage'
 import { IntegrationsSettings } from '@/components/IntegrationsSettings'
+import { LoginPage } from '@/components/LoginPage'
+import { FAQPage } from '@/components/FAQPage'
 import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 import { exchangeRatesApi } from '@/api/client'
 import { dispatchRatesUpdated } from '@/lib/utils'
 
-type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings'
+type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings' | 'faq'
 type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
 
 const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
 
 export default function App() {
+  const [authenticated, setAuthenticated] = useState(() => !!getAuthToken())
   const [servers, setServers] = useState<Server[]>([])
   const [activities, setActivities] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +45,7 @@ export default function App() {
   const [activeView, setActiveView] = useState<View>(() => {
     try {
       const saved = localStorage.getItem('skadik-active-view')
-      if (saved === 'dashboard' || saved === 'servers' || saved === 'billing' || saved === 'activity' || saved === 'settings') {
+      if (saved === 'dashboard' || saved === 'servers' || saved === 'billing' || saved === 'activity' || saved === 'settings' || saved === 'faq') {
         return saved
       }
     } catch { /* ignore */ }
@@ -56,7 +59,7 @@ export default function App() {
       const saved = localStorage.getItem('skadik-theme-settings')
       if (saved) {
         const settings = JSON.parse(saved)
-        return settings.gradientBg !== false
+        return settings.gradientBg === true
       }
     } catch {}
     return true
@@ -101,6 +104,10 @@ export default function App() {
   useEffect(() => {
     loadRates()
   }, [loadRates])
+
+  useEffect(() => {
+    setAuthFailureCallback(() => setAuthenticated(false))
+  }, [])
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -260,6 +267,10 @@ export default function App() {
 
   const activeCount = servers.filter((s) => s.status === 'active').length
 
+  if (!authenticated) {
+    return <LoginPage onLogin={(token) => { setAuthToken(token); setAuthenticated(true) }} />
+  }
+
   return (
     <div className={'flex min-h-screen ' + (gradientBg ? 'bg-background' : 'bg-background')}>
       {gradientBg && (
@@ -287,11 +298,12 @@ export default function App() {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/50 bg-background/80 px-6 backdrop-blur">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold">
-              {activeView === 'dashboard' && 'Дашборд'}
+{activeView === 'dashboard' && 'Дашборд'}
               {activeView === 'servers' && 'Серверы'}
               {activeView === 'billing' && 'Биллинг'}
               {activeView === 'activity' && 'Активность'}
               {activeView === 'settings' && 'Настройки'}
+              {activeView === 'faq' && 'FAQ'}
             </h1>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Zap className="h-3 w-3 text-primary" />
@@ -515,8 +527,14 @@ export default function App() {
                   <HostingManager />
                 </div>
               )}
-              {settingsTab === 'integrations' && <IntegrationsSettings />}
+              {settingsTab === 'integrations' && <IntegrationsSettings onViewChange={(v) => setActiveView(v as typeof activeView)} />}
             </div>
+            </div>
+          )}
+
+          {activeView === 'faq' && (
+            <div key="faq" className="animate-view-enter">
+              <FAQPage />
             </div>
           )}
         </main>

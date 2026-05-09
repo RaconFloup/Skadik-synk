@@ -12,7 +12,7 @@ from datetime import date
 router = APIRouter(prefix="/api/servers", tags=["servers"])
 
 
-async def sync_server_to_services(server: Server):
+async def sync_server_to_services(server: Server, db: Session):
     if not server.termix_host_id and server.status == "active":
         try:
             termix_result = await termix.create_host(ServerCreate(**{
@@ -24,7 +24,7 @@ async def sync_server_to_services(server: Server):
                 "ssh_username": server.ssh_username,
                 "ssh_password": server.ssh_password,
                 "status": server.status
-            }))
+            }), db)
             if termix_result.get("success"):
                 server.termix_host_id = termix_result.get("host_id")
         except Exception as e:
@@ -34,8 +34,8 @@ async def sync_server_to_services(server: Server):
         try:
             gd_result = await google_drive.create_google_doc({
                 "purpose": server.purpose,
-                "country": server.country,
                 "hosting": server.hosting,
+                "country": server.country,
                 "ip": server.ip,
                 "ssh_port": server.ssh_port,
                 "ssh_username": server.ssh_username,
@@ -48,7 +48,7 @@ async def sync_server_to_services(server: Server):
                 "next_payment": server.next_payment.strftime("%Y-%m-%d") if server.next_payment else "",
                 "notes": server.notes,
                 "services": server.services
-            })
+            }, db)
             if gd_result.get("success"):
                 server.google_doc_id = gd_result.get("file_id")
             else:
@@ -77,7 +77,7 @@ async def create_server(server_data: ServerCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(server)
 
-    await sync_server_to_services(server)
+    await sync_server_to_services(server, db)
 
     db.commit()
     db.refresh(server)
@@ -109,13 +109,13 @@ async def delete_server(server_id: UUID, db: Session = Depends(get_db)):
 
     if server.termix_host_id:
         try:
-            await termix.delete_host(server.termix_host_id)
+            await termix.delete_host(server.termix_host_id, db)
         except:
             pass
 
     if server.google_doc_id:
         try:
-            await google_drive.delete_google_doc(server.google_doc_id)
+            await google_drive.delete_google_doc(server.google_doc_id, db)
         except:
             pass
 

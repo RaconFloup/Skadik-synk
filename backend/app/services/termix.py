@@ -1,41 +1,45 @@
 import httpx
 from typing import Optional
-from app.config import settings
+from sqlalchemy.orm import Session
+from app.models.setting import AppSetting
 from app.schemas.server import ServerCreate, ServerUpdate
 
-_client: Optional[httpx.AsyncClient] = None
+
+def _read_settings(db: Session) -> dict:
+    rows = db.query(AppSetting).filter(
+        AppSetting.key.in_(["termix_url", "termix_username", "termix_password"])
+    ).all()
+    result = {row.key: row.value for row in rows}
+    return result
 
 
-async def _get_client() -> httpx.AsyncClient:
-    global _client
-    if _client is not None:
-        return _client
+async def _get_client(db: Session) -> httpx.AsyncClient:
+    s = _read_settings(db)
+    url = s.get("termix_url", "")
+    username = s.get("termix_username", "")
+    password = s.get("termix_password", "")
 
-    if not settings.TERMIX_USERNAME or not settings.TERMIX_PASSWORD:
+    if not username or not password:
         raise Exception("TERMIX_USERNAME or TERMIX_PASSWORD not set")
 
-    client = httpx.AsyncClient(base_url=settings.TERMIX_URL, timeout=15.0)
+    client = httpx.AsyncClient(base_url=url, timeout=15.0)
     try:
         response = await client.post(
             "/users/login",
-            json={
-                "username": settings.TERMIX_USERNAME,
-                "password": settings.TERMIX_PASSWORD,
-            },
+            json={"username": username, "password": password},
         )
         if response.status_code != 200:
             await client.aclose()
             raise Exception(f"Login failed: {response.text[:200]}")
-        _client = client
-        return _client
+        return client
     except Exception as e:
         await client.aclose()
         raise Exception(f"Termix auth error: {e}")
 
 
-async def create_host(server: ServerCreate) -> dict:
+async def create_host(server: ServerCreate, db: Session) -> dict:
     try:
-        client = await _get_client()
+        client = await _get_client(db)
         response = await client.post(
             "/host/db/host",
             json={
@@ -53,6 +57,7 @@ async def create_host(server: ServerCreate) -> dict:
                 "showServerStatsInSidebar": True,
             },
         )
+        await client.aclose()
         if response.status_code in (200, 201):
             data = response.json()
             return {"success": True, "host_id": data.get("id")}
@@ -61,9 +66,9 @@ async def create_host(server: ServerCreate) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def update_host(termix_host_id, server: ServerUpdate) -> dict:
+async def update_host(termix_host_id, server: ServerUpdate, db: Session) -> dict:
     try:
-        client = await _get_client()
+        client = await _get_client(db)
         host_id = int(termix_host_id)
         response = await client.put(
             f"/host/db/host/{host_id}",
@@ -79,6 +84,7 @@ async def update_host(termix_host_id, server: ServerUpdate) -> dict:
                 "enableFileManager": True,
             },
         )
+        await client.aclose()
         if response.status_code == 200:
             return {"success": True}
         return {"success": False, "error": response.text}
@@ -86,13 +92,15 @@ async def update_host(termix_host_id, server: ServerUpdate) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def delete_host(termix_host_id) -> dict:
+async def delete_host(termix_host_id, db: Session) -> dict:
     try:
-        client = await _get_client()
-        host_id = int(termix_host_id)
-        response = await client.delete(f"/host/db/host/{host_id}")
-        if response.status_code in (200, 204):
-            return {"success": True}
-        return {"success": False, "error": response.text}
+        s = _read_settings(db)
+        url = s.get("termix_url", "")
+        async with httpx.AsyncClient(base_url=url, timeout=15.0) as client:
+            host_id = int(termix_host_id)
+            response = await client.delete(f"/host/db/host/{host_id}")
+            if response.status_code in (200, 204):
+                return {"success": True}
+            return {"success": False, "error": response.text}
     except Exception as e:
         return {"success": False, "error": str(e)}
