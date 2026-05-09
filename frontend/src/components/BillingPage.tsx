@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
-import type { Server } from '@/types'
+import type { Server, PurposeItem } from '@/types'
 import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban } from 'lucide-react'
 import { settingsApi, hostingApi, serversApi, exchangeRatesApi } from '@/api/client'
 import type { Hosting } from '@/types'
@@ -61,18 +61,28 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
   const [loadingRates, setLoadingRates] = useState(true)
   const [hostingLogoMap, setHostingLogoMap] = useState<Record<string, string>>({})
+  const [purposeMap, setPurposeMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     Promise.all([
       settingsApi.getAll().catch(() => ({ base_currency: 'RUB' })),
       exchangeRatesApi.get().catch(() => null),
       hostingApi.getAll().catch(() => [] as Hosting[]),
-    ]).then(([settings, data, hostings]) => {
+    ]).then(([rawSettings, data, hostings]) => {
+      const settings = rawSettings as Record<string, string>
       if (settings.base_currency) setBaseCurrency(settings.base_currency)
       if (data?.rates) setRates(data.rates)
       const map: Record<string, string> = {}
       hostings.forEach((h) => { if (h.name) map[h.name] = h.logo_url || '' })
       setHostingLogoMap(map)
+      if (settings.purposes) {
+        try {
+          const items: PurposeItem[] = JSON.parse(settings.purposes)
+          const pmap: Record<string, string> = {}
+          items.forEach((p) => { pmap[p.value] = p.label })
+          setPurposeMap(pmap)
+        } catch {}
+      }
     }).finally(() => setLoadingRates(false))
 
     const handleRatesUpdated = () => {
@@ -246,136 +256,153 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
       </div>
 
       {view === 'calendar' && (
-        <>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between bg-accent/20 px-6 py-4">
-              <button
-                onClick={() => { setMonthOffset(monthOffset - 1); setSelectedDate(null) }}
-                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {MONTHS[month === 0 ? 11 : month - 1]}
-              </button>
-              <h2 className="text-lg font-semibold">
-                {MONTHS[month]} {year}
-              </h2>
-              <button
-                onClick={() => { setMonthOffset(monthOffset + 1); setSelectedDate(null) }}
-                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                {MONTHS[month === 11 ? 0 : month + 1]}
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-4">
-              <div className="grid grid-cols-7 mb-2">
-                {DAYS.map((d) => (
-                  <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground/60">
-                    {d}
-                  </div>
-                ))}
+        <div className="flex gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between bg-accent/20 px-4 py-3">
+                <button
+                  onClick={() => { setMonthOffset(monthOffset - 1); setSelectedDate(null) }}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  {MONTHS[month === 0 ? 11 : month - 1]}
+                </button>
+                <h2 className="text-sm font-semibold">
+                  {MONTHS[month]} {year}
+                </h2>
+                <button
+                  onClick={() => { setMonthOffset(monthOffset + 1); setSelectedDate(null) }}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {MONTHS[month === 11 ? 0 : month + 1]}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <div className="grid grid-cols-7 gap-1">
-                {getCalendarDays().map((day, i) => {
-                  if (day === null) return <div key={`e-${i}`} />
-                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                  const dayPayments = paymentsByDate[dateStr]
-                  const isSelected = selectedDate === dateStr
-                  const isToday = dateStr === todayStr
-                  const isWeekend = (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6)
 
-                  return (
-                    <button
-                      key={dateStr}
-                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                      className={`relative flex flex-col rounded-xl p-2 text-xs transition-all min-h-[72px] ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105'
-                          : dayPayments
-                          ? 'bg-accent/50 hover:bg-accent hover:shadow-sm'
-                          : 'hover:bg-accent/30'
-                      }`}
-                    >
-                      <span className={`text-left leading-none mb-1 ${isToday && !isSelected ? 'font-bold' : ''} ${isWeekend && !isSelected && !dayPayments ? 'text-muted-foreground/50' : ''}`}>
-                        {day}
-                      </span>
-                      {isToday && !isSelected && (
-                        <span className="h-0.5 w-3 rounded-full bg-primary mb-1" />
-                      )}
-                      {dayPayments && (
-                        <div className="flex flex-col gap-0.5 w-full">
-                          {dayPayments.slice(0, 3).map((s) => (
-                            <div key={s.id} className="flex items-center gap-1 leading-tight">
-                              {hostingLogoMap[s.hosting] ? (
-                                <img src={hostingLogoMap[s.hosting]} alt="" className="h-3.5 w-3.5 rounded shrink-0 object-contain" />
-                              ) : (
-                                <span className="h-3.5 w-3.5 rounded shrink-0 bg-accent" />
-                              )}
-                              <span className={`truncate ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                {s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3 w-4 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}
+              <div className="p-2">
+                <div className="grid grid-cols-7 mb-1">
+                  {DAYS.map((d) => (
+                    <div key={d} className="py-1 text-center text-[10px] font-medium text-muted-foreground/60">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-0.5">
+                  {getCalendarDays().map((day, i) => {
+                    if (day === null) return <div key={`e-${i}`} />
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                    const dayPayments = paymentsByDate[dateStr]
+                    const isSelected = selectedDate === dateStr
+                    const isToday = dateStr === todayStr
+                    const isWeekend = (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6)
+
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                        className={`relative flex flex-col rounded-lg p-1 text-[10px] transition-all min-h-[68px] ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
+                            : dayPayments
+                            ? 'bg-accent/50 hover:bg-accent hover:shadow-sm'
+                            : 'hover:bg-accent/30'
+                        }`}
+                      >
+                        <span className={`text-left leading-none mb-0.5 ${isToday && !isSelected ? 'font-bold' : ''} ${isWeekend && !isSelected && !dayPayments ? 'text-muted-foreground/50' : ''}`}>
+                          {day}
+                        </span>
+                        {isToday && !isSelected && (
+                          <span className="h-0.5 w-2 rounded-full bg-primary mb-0.5" />
+                        )}
+                        {dayPayments && (
+                          <div className="flex flex-col gap-px w-full">
+                            {dayPayments.slice(0, 2).map((s) => (
+                              <div key={s.id} className="leading-tight text-[9px]">
+                                <div className={`font-semibold truncate ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                  {purposeMap[s.purpose] || s.purpose}
+                                </div>
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                  {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2 w-3 rounded align-text-bottom mr-0.5" />}
+                                  {countryName(s.country)}
+                                </div>
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                  {hostingLogoMap[s.hosting] ? (
+                                    <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-2.5 w-2.5 rounded object-contain align-text-bottom mr-0.5" />
+                                  ) : null}
+                                  {s.hosting}
+                                </div>
+                                {s.cost ? (
+                                  <div className={`font-semibold ${isSelected ? 'text-primary-foreground' : 'text-emerald-400'}`}>
+                                    {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
+                            {dayPayments.length > 2 && (
+                              <span className={`text-[9px] ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>
+                                +{dayPayments.length - 2}
                               </span>
-                            </div>
-                          ))}
-                          {dayPayments.length > 3 && (
-                            <span className={`text-[10px] ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>
-                              +{dayPayments.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>
 
-          {selectedDate && (
-            <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h4 className="text-sm font-medium">
-                  Оплаты <span className="text-primary">{selectedDate}</span>
-                </h4>
-                <span className="text-xs text-muted-foreground">
-                  {daysUntil(selectedDate) < 0 ? 'Просрочено' : `Осталось ${daysUntil(selectedDate)} дн`}
-                </span>
+          <div className="w-80 shrink-0">
+            <div className="rounded-xl border border-border/50 bg-card shadow-sm h-full">
+              <div className="border-b border-border/50 px-4 py-3">
+                <h3 className="text-sm font-semibold">Ближайшие оплаты</h3>
               </div>
-              {(paymentsByDate[selectedDate] || []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет оплат на эту дату</p>
+              {visiblePayments.length === 0 ? (
+                <div className="flex flex-col items-center py-10 text-muted-foreground">
+                  <CalendarDays className="mb-2 h-8 w-8 text-primary/30" />
+                  <p className="text-xs">Нет оплат</p>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {paymentsByDate[selectedDate].map((s) => {
+                <div className="divide-y divide-border/50 max-h-[500px] overflow-y-auto">
+                  {visiblePayments.map((s) => {
                     const daysLeft = daysUntil(s.next_payment!)
                     const isOverdue = daysLeft < 0
-                    const isSoon = daysLeft >= 0 && daysLeft <= 3
+                    const isUrgent = daysLeft >= 0 && daysLeft <= 1
+                    const isWarning = daysLeft >= 2 && daysLeft <= 7
+                    const rowClass = isOverdue ? 'bg-red-500/5' : isUrgent ? 'bg-red-500/5' : isWarning ? 'bg-amber-500/5' : ''
                     return (
-                      <div key={s.id} className="flex items-center justify-between rounded-lg bg-accent/30 px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
-                          {s.not_renewing && (
-                            <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
-                              <Ban className="h-3 w-3" />
-                              Не продляется
-                            </span>
-                          )}
-                          {isOverdue && !s.not_renewing && (
-                            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
-                              <AlertTriangle className="h-3 w-3" />
-                              Просрочено
-                            </span>
-                          )}
-                          {isSoon && !isOverdue && !s.not_renewing && (
-                            <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
-                              <Clock className="h-3 w-3" />
-                              {daysLeft === 0 ? 'Сегодня' : daysLeft === 1 ? 'Завтра' : `Через ${daysLeft} дн`}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-muted-foreground">{getCycleLabel(s.cycle)}</span>
-                          {s.cost && <span className="font-medium">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
-                          <div className="flex items-center gap-1 ml-2">
+                      <div key={s.id} className={`px-4 py-3 hover:bg-accent/20 transition-colors ${rowClass}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-foreground'}`}>
+                                {s.next_payment!.slice(8, 10)}.{s.next_payment!.slice(5, 7)}
+                              </span>
+                              <span className={`text-[10px] ${isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                                {isOverdue ? `Просрочено на ${Math.abs(daysLeft)} дн` : `Осталось ${daysLeft} дн`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-sm font-medium truncate">{purposeMap[s.purpose] || s.purpose}</span>
+                              {s.not_renewing && (
+                                <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-400">
+                                  <Ban className="h-2.5 w-2.5" />
+                                  Не продляется
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <span>{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom" />}{countryName(s.country)}</span>
+                              <span>·</span>
+                              <span>{hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {s.cost && <span className="font-semibold text-emerald-400">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
+                              <span className="ml-1">{getCycleLabel(s.cycle)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => openPaidDialog(s)}
                               disabled={actionLoading === s.id || s.not_renewing}
@@ -400,8 +427,8 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                 </div>
               )}
             </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
 
       {view === 'list' && (
@@ -456,7 +483,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                     <div className="flex flex-1 items-center gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{s.purpose} [{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(s.country)}] {s.hosting}</span>
+                          <span className="font-medium">{purposeMap[s.purpose] || s.purpose} {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3 w-4 rounded align-text-bottom" />}{countryName(s.country)} {hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3.5 w-3.5 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
                           {s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
                               <Ban className="h-3 w-3" />
