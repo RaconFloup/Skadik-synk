@@ -4,6 +4,7 @@ import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertT
 import { settingsApi, hostingApi, serversApi, exchangeRatesApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,17 @@ function daysUntil(dateStr: string): number {
   now.setHours(0, 0, 0, 0)
   const target = new Date(dateStr + 'T00:00:00')
   return Math.ceil((target.getTime() - now.getTime()) / 86400000)
+}
+
+function addCycle(dateStr: string, cycle: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  switch (cycle) {
+    case 'daily': d.setDate(d.getDate() + 1); break
+    case 'weekly': d.setDate(d.getDate() + 7); break
+    case 'monthly': d.setMonth(d.getMonth() + 1); break
+    case 'yearly': d.setFullYear(d.getFullYear() + 1); break
+  }
+  return d.toISOString().split('T')[0]
 }
 
 export function BillingPage({ servers, onServersChange }: BillingPageProps) {
@@ -130,7 +142,10 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   }, [sortedPayments])
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
-  const visiblePayments = paymentsByMonth[currentMonthKey] || []
+  const visiblePayments = (paymentsByMonth[currentMonthKey] || []).slice().sort((a, b) => {
+    if (!!a.last_paid_at !== !!b.last_paid_at) return a.last_paid_at ? 1 : -1
+    return (a.next_payment || '').localeCompare(b.next_payment || '')
+  })
 
   const totalMonthly = serversWithPayments.reduce((sum, s) => sum + toBaseCurrency(s.cost || 0, s.currency || 'USD'), 0)
   const overdueCount = sortedPayments.filter((s) => s.next_payment && daysUntil(s.next_payment) < 0).length
@@ -144,10 +159,13 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const [paidDialogServer, setPaidDialogServer] = useState<Server | null>(null)
+  const [paidDialogDate, setPaidDialogDate] = useState('')
   const [notRenewDialogServer, setNotRenewDialogServer] = useState<Server | null>(null)
 
   const openPaidDialog = useCallback((server: Server) => {
+    if (!server.next_payment) return
     setPaidDialogServer(server)
+    setPaidDialogDate(addCycle(server.next_payment, server.cycle))
   }, [])
 
   const confirmPaid = useCallback(async () => {
@@ -155,7 +173,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     if (!server) return
     setActionLoading(server.id)
     try {
-      await serversApi.update(server.id, { last_paid_at: server.next_payment })
+      await serversApi.update(server.id, { last_paid_at: server.next_payment, next_payment: paidDialogDate })
       onServersChange?.()
       setPaidDialogServer(null)
     } catch {
@@ -163,7 +181,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     } finally {
       setActionLoading(null)
     }
-  }, [paidDialogServer, onServersChange])
+  }, [paidDialogServer, paidDialogDate, onServersChange])
 
   const openNotRenewDialog = useCallback((server: Server) => {
     setNotRenewDialogServer(server)
@@ -577,12 +595,17 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {paidDialogServer?.next_payment && (
-              <div className="rounded-lg bg-accent/30 px-4 py-3 text-sm">
-                <span className="text-muted-foreground">Дата оплаты: </span>
-                <span className="font-semibold">{paidDialogServer.next_payment.slice(8, 10)}.{paidDialogServer.next_payment.slice(5, 7)}.{paidDialogServer.next_payment.slice(0, 4)}</span>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium mb-1">Следующая оплата</label>
+              <Input
+                type="date"
+                value={paidDialogDate}
+                onChange={(e) => setPaidDialogDate(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Рассчитано автоматически на основе цикла. Можно изменить вручную.
+              </p>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setPaidDialogServer(null)}>
                 Отмена
