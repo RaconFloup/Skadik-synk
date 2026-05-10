@@ -212,7 +212,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const unmarkPaid = useCallback(async (server: Server) => {
     setActionLoading(server.id)
     try {
-      await serversApi.update(server.id, { last_paid_at: null })
+      await serversApi.update(server.id, { last_paid_at: null, next_payment: server.last_paid_at! })
       onServersChange?.()
     } catch {
       console.error('Failed to unmark paid')
