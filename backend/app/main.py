@@ -9,7 +9,9 @@ from app.routers.settings import router as settings_router
 from app.routers.telegram import router as telegram_router
 from app.routers.exchange_rates import router as exchange_rates_router
 from app.routers.auth import router as auth_router
+from app.routers.uptime import router as uptime_router
 from app.dependencies.auth import auth_middleware
+from app.services.uptime_checker import start_scheduler
 
 app = FastAPI(title="Skadik Synk API", version="1.0.0")
 
@@ -31,11 +33,13 @@ app.include_router(settings_router)
 app.include_router(telegram_router)
 app.include_router(exchange_rates_router)
 app.include_router(auth_router)
+app.include_router(uptime_router)
 
 
 @app.on_event("startup")
 def startup():
     init_db()
+    start_scheduler()
 
 
 @app.get("/api/health")

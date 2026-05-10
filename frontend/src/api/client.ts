@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting } from '@/types'
+import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting, UptimeMonitor, UptimeCheck, UptimeMonitorWithStatus } from '@/types'
 
 const TOKEN_KEY = 'skadik-auth-token'
 
@@ -97,6 +97,19 @@ export const brandingApi = {
 export const telegramApi = {
   fetchAvatar: (botUsername: string) =>
     api.post<{ logo_url: string }>('/telegram/fetch-avatar', { bot_username: botUsername }).then(res => res.data),
+}
+
+export const uptimeApi = {
+  getAll: () => api.get<UptimeMonitorWithStatus[]>('/uptime').then(res => res.data),
+  create: (data: { name: string; host: string; port?: number; server_id?: string | null; check_interval?: number; is_active?: boolean }) =>
+    api.post<UptimeMonitor>('/uptime', data).then(res => res.data),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.put<UptimeMonitor>(`/uptime/${id}`, data).then(res => res.data),
+  delete: (id: string) => api.delete(`/uptime/${id}`),
+  getChecks: (id: string, limit?: number) =>
+    api.get<UptimeCheck[]>(`/uptime/${id}/checks`, { params: { limit } }).then(res => res.data),
+  checkNow: (id: string) =>
+    api.post(`/uptime/${id}/check-now`).then(res => res.data),
 }
 
 export default api

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { serversApi, activityApi, settingsApi, brandingApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
-import type { Server, ServerCreate, ActivityLog, PurposeItem } from '@/types'
+import { serversApi, activityApi, settingsApi, brandingApi, uptimeApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
+import type { Server, ServerCreate, ActivityLog, PurposeItem, UptimeMonitorWithStatus } from '@/types'
 import { DEFAULT_PURPOSES } from '@/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,13 +22,14 @@ import { BillingPage } from '@/components/BillingPage'
 import { IntegrationsSettings } from '@/components/IntegrationsSettings'
 import { LoginPage } from '@/components/LoginPage'
 import { FAQPage } from '@/components/FAQPage'
-import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check } from 'lucide-react'
+import { UptimePage } from '@/components/UptimePage'
+import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check, Wifi } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 import { exchangeRatesApi } from '@/api/client'
 import { dispatchRatesUpdated } from '@/lib/utils'
 import { updateFavicon } from '@/config/themes'
 
-type View = 'dashboard' | 'servers' | 'billing' | 'activity' | 'settings' | 'faq'
+type View = 'dashboard' | 'servers' | 'billing' | 'uptime' | 'activity' | 'settings' | 'faq'
 type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
 
 const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
@@ -48,7 +49,7 @@ export default function App() {
   const location = useLocation()
 
   const viewFromPath = location.pathname === '/' ? 'servers' : location.pathname.split('/')[1]
-  const activeView = (['dashboard', 'servers', 'billing', 'activity', 'settings', 'faq'].includes(viewFromPath) ? viewFromPath : 'servers') as View
+  const activeView = (['dashboard', 'servers', 'billing', 'uptime', 'activity', 'settings', 'faq'].includes(viewFromPath) ? viewFromPath : 'servers') as View
   const rawTab = location.pathname.split('/')[2]
   const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' ? rawTab : 'general') as SettingsTab
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export default function App() {
   const [ratesTimestamp, setRatesTimestamp] = useState<number | null>(null)
   const [ratesLoading, setRatesLoading] = useState(false)
   const [ratesJustUpdated, setRatesJustUpdated] = useState(false)
+  const [uptimeData, setUptimeData] = useState<UptimeMonitorWithStatus[]>([])
 
   const loadRates = useCallback(async () => {
     try {
@@ -179,6 +181,7 @@ export default function App() {
     if (!authenticated) return
     loadServers()
     loadActivities()
+    uptimeApi.getAll().then(setUptimeData).catch(() => {})
     settingsApi.getAll().then((s) => {
       if (s.purpose_order) {
         try { setPurposeOrder(JSON.parse(s.purpose_order)) } catch {}
@@ -317,9 +320,10 @@ export default function App() {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/50 bg-background/80 px-6 backdrop-blur">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold">
-{activeView === 'dashboard' && 'Дашборд'}
+              {activeView === 'dashboard' && 'Дашборд'}
               {activeView === 'servers' && 'Серверы'}
               {activeView === 'billing' && 'Биллинг'}
+              {activeView === 'uptime' && 'Аптайм'}
               {activeView === 'activity' && 'Активность'}
               {activeView === 'settings' && 'Настройки'}
               {activeView === 'faq' && 'FAQ'}
@@ -350,7 +354,7 @@ export default function App() {
                 </Button>
               </>
             )}
-            {activeView === 'activity' && (
+          {activeView === 'activity' && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -365,7 +369,7 @@ export default function App() {
         <main className="flex-1 p-6">
           {activeView === 'dashboard' && (
             <div key="dashboard" className="animate-view-enter">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="rounded-lg border border-border/50 bg-card p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <ServerIcon className="h-4 w-4" />
@@ -386,6 +390,15 @@ export default function App() {
                   <span>Событий</span>
                 </div>
                 <p className="mt-2 text-3xl font-bold">{activities.length}</p>
+              </div>
+              <div className="rounded-lg border border-border/50 bg-card p-5">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Wifi className="h-4 w-4" />
+                  <span>Мониторы</span>
+                </div>
+                <p className="mt-2 text-3xl font-bold">
+                  {uptimeData.filter((m) => m.last_check?.is_up).length}/{uptimeData.length}
+                </p>
               </div>
               <div className="rounded-lg border border-border/50 bg-card p-5">
                 <div className="flex items-center justify-between">
@@ -481,6 +494,12 @@ export default function App() {
           {activeView === 'billing' && (
             <div key="billing" className="animate-view-enter">
               <BillingPage servers={servers} onServersChange={loadServers} />
+            </div>
+          )}
+
+          {activeView === 'uptime' && (
+            <div key="uptime" className="animate-view-enter">
+              <UptimePage />
             </div>
           )}
 

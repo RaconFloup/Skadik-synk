@@ -113,3 +113,32 @@ export interface Hosting {
   is_default: boolean
   created_at: string
 }
+
+export interface UptimeMonitor {
+  id: string
+  server_id?: string | null
+  name: string
+  host: string
+  port: number
+  check_interval: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UptimeCheck {
+  id: string
+  monitor_id: string
+  is_up: boolean
+  response_time_ms?: number | null
+  error?: string | null
+  checked_at: string
+}
+
+export interface UptimeMonitorWithStatus {
+  monitor: UptimeMonitor
+  last_check: UptimeCheck | null
+  recent_checks: UptimeCheck[]
+  uptime_24h: number | null
+  uptime_7d: number | null
+}

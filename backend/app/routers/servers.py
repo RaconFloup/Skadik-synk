@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.database import get_db
 from app.models.server import Server
+from app.models.uptime import UptimeMonitor
 from app.schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from app.services import termix, google_drive
 
@@ -76,6 +77,15 @@ async def create_server(server_data: ServerCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(server)
 
+    monitor = UptimeMonitor(
+        server_id=server.id,
+        name=f"{server_data.purpose} [{server_data.country}] {server_data.hosting}",
+        host=server_data.ip,
+        port=server_data.ssh_port or 22,
+        is_active=True,
+    )
+    db.add(monitor)
+
     await sync_server_to_services(server, db)
 
     db.commit()
@@ -93,6 +103,15 @@ def update_server(server_id: UUID, server_data: ServerUpdate, db: Session = Depe
     for field, value in update_data.items():
         setattr(server, field, value)
     server.needs_sync = True
+
+    monitor = db.query(UptimeMonitor).filter(UptimeMonitor.server_id == server.id).first()
+    if monitor:
+        if "ip" in update_data:
+            monitor.host = server.ip
+        if "ssh_port" in update_data:
+            monitor.port = server.ssh_port or 22
+        if "purpose" in update_data or "country" in update_data or "hosting" in update_data:
+            monitor.name = f"{server.purpose} [{server.country}] {server.hosting}"
 
     db.commit()
     db.refresh(server)

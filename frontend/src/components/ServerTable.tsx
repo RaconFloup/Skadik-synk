@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { Loader2, Pencil, Trash2, RefreshCw, X, Check, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Pencil, Trash2, RefreshCw, X, Check, Eye, EyeOff, Wifi, CheckCircle, XCircle } from 'lucide-react'
+import { uptimeApi } from '@/api/client'
 import { flagImg, countryName } from '@/lib/flags'
 
 const DEFAULT_PURPOSE_ORDER = ['PANEL', 'NODE', 'SERVICES']
@@ -48,6 +49,7 @@ interface ServerTableProps {
 export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purposeOrder, purposes }: ServerTableProps) {
   const order = purposeOrder ?? DEFAULT_PURPOSE_ORDER
   const purposeList = purposes ?? DEFAULT_PURPOSES
+  const [monitorToast, setMonitorToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const groups = order
     .map((p) => ({ purpose: p, servers: servers.filter((s) => s.purpose === p) }))
@@ -96,6 +98,7 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
               onDelete={onDelete}
               onSave={onSave}
               purposeList={purposeList}
+              onMonitorToast={setMonitorToast}
             />
           ))}
 
@@ -108,12 +111,24 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
           )}
         </tbody>
       </table>
+      {monitorToast && (
+        <div className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-lg"
+          style={{
+            borderColor: monitorToast.type === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+            backgroundColor: monitorToast.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+            color: monitorToast.type === 'success' ? 'rgb(34,197,94)' : 'rgb(239,68,68)',
+          }}
+        >
+          {monitorToast.type === 'success' ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+          {monitorToast.message}
+        </div>
+      )}
     </div>
   )
 }
 
 function GroupSection({
-  purpose, servers, onSync, syncingId, onDelete, onSave, purposeList,
+  purpose, servers, onSync, syncingId, onDelete, onSave, purposeList, onMonitorToast,
 }: {
   purpose: string
   servers: Server[]
@@ -122,6 +137,7 @@ function GroupSection({
   onDelete: (id: string) => void
   onSave: (id: string, data: Partial<Server>) => Promise<void>
   purposeList: PurposeItem[]
+  onMonitorToast: (toast: { message: string; type: 'success' | 'error' } | null) => void
 }) {
   const purposeLabel = purposeList.find((p) => p.value === purpose)?.label || purpose
   return (
@@ -140,6 +156,7 @@ function GroupSection({
           onDelete={onDelete}
           onSave={onSave}
           purposeList={purposeList}
+          onMonitorToast={onMonitorToast}
         />
       ))}
     </>
@@ -147,7 +164,7 @@ function GroupSection({
 }
 
 function ExpandRow({
-  server, onSync, syncingId, onDelete, onSave, purposeList,
+  server, onSync, syncingId, onDelete, onSave, purposeList, onMonitorToast,
 }: {
   server: Server
   onSync: (id: string) => void
@@ -155,12 +172,32 @@ function ExpandRow({
   onDelete: (id: string) => void
   onSave: (id: string, data: Partial<Server>) => Promise<void>
   purposeList: PurposeItem[]
+  onMonitorToast: (toast: { message: string; type: 'success' | 'error' } | null) => void
 }) {
   const purposeOptions = purposeList ?? DEFAULT_PURPOSES
   const [expanded, setExpanded] = useState(false)
   const [editData, setEditData] = useState<Partial<Server>>({})
   const [saving, setSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [addingMonitor, setAddingMonitor] = useState(false)
+
+  const handleAddMonitor = async () => {
+    setAddingMonitor(true)
+    try {
+      await uptimeApi.create({
+        name: `${server.purpose} [${countryName(server.country)}] ${server.hosting}`,
+        host: server.ip,
+        port: server.ssh_port || 22,
+        server_id: server.id,
+      })
+      onMonitorToast({ message: 'Монитор добавлен', type: 'success' })
+    } catch {
+      onMonitorToast({ message: 'Ошибка при добавлении монитора', type: 'error' })
+    } finally {
+      setAddingMonitor(false)
+      setTimeout(() => onMonitorToast(null), 3000)
+    }
+  }
 
   const handleCancel = () => {
     setExpanded(false)
@@ -227,6 +264,21 @@ function ExpandRow({
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-emerald-400/50 opacity-0 transition-all duration-200 hover:text-emerald-400 group-hover:opacity-100"
+              onClick={handleAddMonitor}
+              disabled={addingMonitor}
+              title="Добавить монитор аптайма"
+            >
+              {addingMonitor ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wifi className="h-3.5 w-3.5" />
+              )}
+            </Button>
+
             <Button
               size="sm"
               variant={server.needs_sync ? 'default' : 'ghost'}
