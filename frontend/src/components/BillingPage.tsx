@@ -4,7 +4,6 @@ import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertT
 import { settingsApi, hostingApi, serversApi, exchangeRatesApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -40,17 +39,6 @@ function daysUntil(dateStr: string): number {
   now.setHours(0, 0, 0, 0)
   const target = new Date(dateStr + 'T00:00:00')
   return Math.ceil((target.getTime() - now.getTime()) / 86400000)
-}
-
-function addCycle(dateStr: string, cycle: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  switch (cycle) {
-    case 'daily': d.setDate(d.getDate() + 1); break
-    case 'weekly': d.setDate(d.getDate() + 7); break
-    case 'monthly': d.setMonth(d.getMonth() + 1); break
-    case 'yearly': d.setFullYear(d.getFullYear() + 1); break
-  }
-  return d.toISOString().split('T')[0]
 }
 
 export function BillingPage({ servers, onServersChange }: BillingPageProps) {
@@ -156,13 +144,10 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const [paidDialogServer, setPaidDialogServer] = useState<Server | null>(null)
-  const [paidDialogDate, setPaidDialogDate] = useState('')
   const [notRenewDialogServer, setNotRenewDialogServer] = useState<Server | null>(null)
 
   const openPaidDialog = useCallback((server: Server) => {
-    if (!server.next_payment) return
     setPaidDialogServer(server)
-    setPaidDialogDate(addCycle(server.next_payment, server.cycle))
   }, [])
 
   const confirmPaid = useCallback(async () => {
@@ -170,7 +155,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     if (!server) return
     setActionLoading(server.id)
     try {
-      await serversApi.update(server.id, { next_payment: paidDialogDate })
+      await serversApi.update(server.id, { last_paid_at: server.next_payment })
       onServersChange?.()
       setPaidDialogServer(null)
     } catch {
@@ -178,7 +163,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     } finally {
       setActionLoading(null)
     }
-  }, [paidDialogServer, paidDialogDate, onServersChange])
+  }, [paidDialogServer, onServersChange])
 
   const openNotRenewDialog = useCallback((server: Server) => {
     setNotRenewDialogServer(server)
@@ -321,28 +306,34 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                         )}
                         {dayPayments && (
                           <div className="flex flex-col gap-0.5 w-full">
-                            {dayPayments.slice(0, 2).map((s, idx) => (
+                            {dayPayments.slice(0, 2).map((s, idx) => {
+                              const isPaid = s.last_paid_at === dateStr
+                              return (
                               <div key={s.id} className={`leading-tight text-[10px] ${!isSelected && idx > 0 ? 'border-t border-border/20 pt-0.5' : ''}`}>
-                                <div className={`font-semibold truncate ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                <div className={`flex items-center gap-1 font-semibold truncate ${isSelected ? 'text-primary-foreground' : isPaid ? 'text-muted-foreground/50' : 'text-foreground'}`}>
                                   {purposeMap[s.purpose] || s.purpose}
+                                  {isPaid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-emerald-400" />}
                                 </div>
-                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : 'text-foreground/70'}`}>
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : isPaid ? 'text-muted-foreground/30' : 'text-foreground/70'}`}>
                                   {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom mr-0.5" />}
                                   {countryName(s.country)}
                                 </div>
-                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : 'text-foreground/70'}`}>
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : isPaid ? 'text-muted-foreground/30' : 'text-foreground/70'}`}>
                                   {hostingLogoMap[s.hosting] ? (
                                     <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom mr-0.5" />
                                   ) : null}
                                   {s.hosting}
                                 </div>
                                 {s.cost ? (
-                                  <div className={`font-semibold ${isSelected ? 'text-primary-foreground' : 'text-emerald-400'}`}>
+                                  <div className={`font-semibold ${isSelected ? 'text-primary-foreground' : isPaid ? 'text-muted-foreground/30 line-through' : 'text-emerald-400'}`}>
                                     {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
                                   </div>
                                 ) : null}
+                                {isPaid && (
+                                  <div className="text-[9px] text-emerald-400/60 font-medium">Оплачено</div>
+                                )}
                               </div>
-                            ))}
+                            )})}
                             {dayPayments.length > 2 && (
                               <span className={`text-[10px] ${isSelected ? 'text-primary-foreground/60' : 'text-foreground/60'}`}>
                                 +{dayPayments.length - 2}
@@ -371,67 +362,71 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
               ) : (
                 <div className="divide-y divide-border/50 max-h-[500px] overflow-y-auto">
                   {visiblePayments.map((s) => {
+                    const isPaid = !!s.last_paid_at
                     const daysLeft = daysUntil(s.next_payment!)
                     const isOverdue = daysLeft < 0
                     const isUrgent = daysLeft >= 0 && daysLeft <= 1
                     const isWarning = daysLeft >= 2 && daysLeft <= 7
-                    const rowClass = isOverdue ? 'bg-red-500/5' : isUrgent ? 'bg-red-500/5' : isWarning ? 'bg-amber-500/5' : ''
+                    const rowClass = isPaid ? 'bg-emerald-500/5' : isOverdue ? 'bg-red-500/5' : isUrgent ? 'bg-red-500/5' : isWarning ? 'bg-amber-500/5' : ''
                     return (
-                      <div key={s.id} className={`px-4 py-3 hover:bg-accent/20 transition-colors ${rowClass}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-foreground'}`}>
-                                {s.next_payment!.slice(8, 10)}.{s.next_payment!.slice(5, 7)}
+                    <div key={s.id} className={`px-4 py-3 hover:bg-accent/20 transition-colors ${rowClass}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-semibold ${isPaid ? 'text-emerald-400' : isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-foreground'}`}>
+                              {s.next_payment!.slice(8, 10)}.{s.next_payment!.slice(5, 7)}
+                            </span>
+                            {isPaid ? (
+                              <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                Оплачено
                               </span>
-                              <span className={`text-[10px] ${isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-muted-foreground'}`}>
-                                {isOverdue ? `Просрочено на ${Math.abs(daysLeft)} дн` : `Осталось ${daysLeft} дн`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                              <span className="text-sm font-medium truncate">{purposeMap[s.purpose] || s.purpose}</span>
-                              {s.not_renewing && (
-                                <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-400">
-                                  <Ban className="h-2.5 w-2.5" />
-                                  Не продляется
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                              <span>{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom" />}{countryName(s.country)}</span>
-                              <span>·</span>
-                              <span>{hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
-                              {hostingUrlMap[s.hosting] && (
-                                <a href={hostingUrlMap[s.hosting]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-muted-foreground/50 hover:text-foreground transition-colors" title={hostingUrlMap[s.hosting]}>
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                              )}
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {s.cost && <span className="font-semibold text-emerald-400">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
-                              <span className="ml-1">{getCycleLabel(s.cycle)}</span>
-                            </div>
+                            ) : (
+                            <span className={`text-[10px] ${isOverdue ? 'text-red-400' : isUrgent ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                              {isOverdue ? `Просрочено на ${Math.abs(daysLeft)} дн` : `Осталось ${daysLeft} дн`}
+                            </span>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => openPaidDialog(s)}
-                              disabled={actionLoading === s.id || s.not_renewing}
-                              className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30"
-                              title="Оплачен"
-                            >
-                              {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                            </button>
-                            <button
-                              onClick={() => openNotRenewDialog(s)}
-                              disabled={actionLoading === s.id}
-                              className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')}
-                              title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                            </button>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span className={`text-sm font-medium truncate ${isPaid ? 'text-muted-foreground/70' : ''}`}>{purposeMap[s.purpose] || s.purpose}</span>
+                            {s.not_renewing && (
+                              <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-400">
+                                <Ban className="h-2.5 w-2.5" />
+                                Не продляется
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <span>{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom" />}{countryName(s.country)}</span>
+                            <span>·</span>
+                            <span>{hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
+                            {hostingUrlMap[s.hosting] && (
+                              <a href={hostingUrlMap[s.hosting]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-muted-foreground/50 hover:text-foreground transition-colors" title={hostingUrlMap[s.hosting]}>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {s.cost && <span className={`font-semibold ${isPaid ? 'text-muted-foreground/50' : 'text-emerald-400'}`}>{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
+                            <span className="ml-1">{getCycleLabel(s.cycle)}</span>
                           </div>
                         </div>
+                        {!isPaid ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => openPaidDialog(s)} disabled={actionLoading === s.id || s.not_renewing} className="rounded p-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-30" title="Оплачен">
+                            {actionLoading === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </button>
+                          <button onClick={() => openNotRenewDialog(s)} disabled={actionLoading === s.id} className={'rounded p-1 disabled:opacity-30 ' + (s.not_renewing ? 'text-rose-400 hover:text-rose-300' : 'text-muted-foreground hover:text-foreground')} title={s.not_renewing ? 'Возобновить продление' : 'Не продлять'}>
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        ) : (
+                          <div className="flex items-center text-emerald-400/40">
+                            <CheckCircle2 className="h-5 w-5" />
+                          </div>
+                        )}
                       </div>
+                    </div>
                     )
                   })}
                 </div>
@@ -471,6 +466,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
           ) : (
             <div className="divide-y divide-border/50">
               {visiblePayments.map((s) => {
+                const isPaid = !!s.last_paid_at
                 const daysLeft = daysUntil(s.next_payment!)
                 const isOverdue = daysLeft < 0
                 const isSoon = daysLeft >= 0 && daysLeft <= 3
@@ -478,7 +474,9 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                 return (
                    <div key={s.id} className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-accent/20">
                     <div className={`flex w-14 flex-col items-center rounded-lg py-2 ${
-                      isOverdue
+                      isPaid
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : isOverdue
                         ? 'bg-red-500/10 text-red-400'
                         : isSoon
                         ? 'bg-amber-500/10 text-amber-400'
@@ -493,20 +491,25 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                     <div className="flex flex-1 items-center gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{purposeMap[s.purpose] || s.purpose} {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3 w-4 rounded align-text-bottom" />}{countryName(s.country)} {hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3.5 w-3.5 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
-                          {s.not_renewing && (
+                          <span className={`font-medium ${isPaid ? 'text-muted-foreground/70' : ''}`}>{purposeMap[s.purpose] || s.purpose} {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-3 w-4 rounded align-text-bottom" />}{countryName(s.country)} {hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3.5 w-3.5 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
+                          {isPaid ? (
+                            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Оплачено
+                            </span>
+                          ) : s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
                               <Ban className="h-3 w-3" />
                               Не продляется
                             </span>
                           )}
-                          {isOverdue && !s.not_renewing && (
+                          {!isPaid && isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
                               <AlertTriangle className="h-3 w-3" />
                               Просрочено
                             </span>
                           )}
-                          {isSoon && !isOverdue && !s.not_renewing && (
+                          {!isPaid && isSoon && !isOverdue && !s.not_renewing && (
                             <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
                               <Clock className="h-3 w-3" />
                               {daysLeft === 0 ? 'Сегодня' : daysLeft === 1 ? 'Завтра' : `Через ${daysLeft} дн`}
@@ -523,12 +526,13 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                       <div className="flex items-center gap-2">
                         <div className="text-right">
                           {s.cost && (
-                            <div className="text-sm font-semibold">
+                            <div className={`text-sm font-semibold ${isPaid ? 'text-muted-foreground/50' : ''}`}>
                               {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
                             </div>
                           )}
                           <div className="text-xs text-muted-foreground">{getCycleLabel(s.cycle)}</div>
                         </div>
+                        {!isPaid ? (
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => openPaidDialog(s)}
@@ -547,6 +551,11 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                             <Ban className="h-3.5 w-3.5" />
                           </button>
                         </div>
+                        ) : (
+                          <div className="flex items-center text-emerald-400/40">
+                            <CheckCircle2 className="h-5 w-5" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -568,17 +577,12 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Следующая оплата</label>
-              <Input
-                type="date"
-                value={paidDialogDate}
-                onChange={(e) => setPaidDialogDate(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Рассчитано автоматически на основе цикла. Можно изменить вручную.
-              </p>
-            </div>
+            {paidDialogServer?.next_payment && (
+              <div className="rounded-lg bg-accent/30 px-4 py-3 text-sm">
+                <span className="text-muted-foreground">Дата оплаты: </span>
+                <span className="font-semibold">{paidDialogServer.next_payment.slice(8, 10)}.{paidDialogServer.next_payment.slice(5, 7)}.{paidDialogServer.next_payment.slice(0, 4)}</span>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setPaidDialogServer(null)}>
                 Отмена

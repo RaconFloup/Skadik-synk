@@ -30,5 +30,6 @@ class Server(Base):
     google_doc_id = Column(String(255))
     needs_sync = Column(Boolean, default=True)
     not_renewing = Column(Boolean, default=False)
+    last_paid_at = Column(Date)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

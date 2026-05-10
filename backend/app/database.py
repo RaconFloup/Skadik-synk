@@ -66,6 +66,18 @@ def run_migrations():
             END $$;
         """))
 
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'servers' AND column_name = 'last_paid_at'
+                ) THEN
+                    ALTER TABLE servers ADD COLUMN last_paid_at DATE;
+                END IF;
+            END $$;
+        """))
+
         conn.commit()
 
 

@@ -20,6 +20,7 @@ export interface Server {
   google_doc_id?: string
   needs_sync: boolean
   not_renewing: boolean
+  last_paid_at?: string
   created_at: string
   updated_at: string
 }

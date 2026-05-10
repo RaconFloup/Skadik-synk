@@ -45,6 +45,7 @@ class ServerUpdate(ServerBase):
     notes: Optional[str] = None
     services: Optional[dict] = None
     not_renewing: Optional[bool] = None
+    last_paid_at: Optional[date] = None
 
 
 class ServerResponse(ServerBase):
@@ -53,6 +54,7 @@ class ServerResponse(ServerBase):
     google_doc_id: Optional[str] = None
     needs_sync: bool = True
     not_renewing: bool = False
+    last_paid_at: Optional[date] = None
     created_at: datetime
     updated_at: datetime
 
