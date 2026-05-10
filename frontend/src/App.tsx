@@ -43,6 +43,7 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncingAll, setSyncingAll] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
   const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
@@ -260,6 +261,38 @@ export default function App() {
     }
   }
 
+  const handleSyncAll = async () => {
+    const toSync = servers.filter((s) => s.needs_sync)
+    if (toSync.length === 0) {
+      setToast({ message: 'Нет серверов, требующих синхронизации', type: 'success' })
+      return
+    }
+    setSyncingAll(true)
+    let successCount = 0
+    let errorCount = 0
+    for (const server of toSync) {
+      try {
+        const result = await serversApi.sync(server.id)
+        const hasError = (result.termix && !result.termix.success) || (result.google_drive && !result.google_drive.success)
+        if (hasError) {
+          errorCount++
+        } else {
+          successCount++
+          addActivity('Синхронизация: ' + server.purpose + ' [' + countryName(server.country) + '] ' + server.hosting)
+        }
+      } catch {
+        errorCount++
+      }
+    }
+    loadServers()
+    if (errorCount === 0) {
+      setToast({ message: `Синхронизировано ${successCount} серверов`, type: 'success' })
+    } else {
+      setToast({ message: `Синхронизировано ${successCount}, ошибок ${errorCount}`, type: 'error' })
+    }
+    setSyncingAll(false)
+  }
+
   const handleDeleteActivity = async (id: string) => {
     try {
       await activityApi.delete(id)
@@ -341,10 +374,12 @@ export default function App() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={loadServers}
-                  disabled={loading}
+                  onClick={handleSyncAll}
+                  disabled={syncingAll}
+                  title="Синхронизировать все"
+                  className={servers.some((s) => s.needs_sync) && !syncingAll ? 'text-amber-500' : ''}
                 >
-                  <RefreshCw className={'h-4 w-4' + (loading ? ' animate-spin' : '')} />
+                  <RefreshCw className={'h-4 w-4' + (syncingAll ? ' animate-spin' : '')} />
                 </Button>
                 <Button
                   size="sm"
