@@ -305,11 +305,11 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                       <button
                         key={dateStr}
                         onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                        className={`relative flex flex-col rounded-lg p-1 text-[10px] transition-all min-h-[68px] ${
+                        className={`relative flex flex-col rounded-lg p-1.5 text-xs transition-all min-h-[80px] ${
                           isSelected
                             ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
                             : dayPayments
-                            ? 'bg-accent/50 hover:bg-accent hover:shadow-sm'
+                            ? 'bg-accent/60 hover:bg-accent hover:shadow-sm'
                             : 'hover:bg-accent/30'
                         }`}
                       >
@@ -320,19 +320,19 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                           <span className="h-0.5 w-2 rounded-full bg-primary mb-0.5" />
                         )}
                         {dayPayments && (
-                          <div className="flex flex-col gap-px w-full">
-                            {dayPayments.slice(0, 2).map((s) => (
-                              <div key={s.id} className="leading-tight text-[9px]">
+                          <div className="flex flex-col gap-0.5 w-full">
+                            {dayPayments.slice(0, 2).map((s, idx) => (
+                              <div key={s.id} className={`leading-tight text-[10px] ${!isSelected && idx > 0 ? 'border-t border-border/20 pt-0.5' : ''}`}>
                                 <div className={`font-semibold truncate ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
                                   {purposeMap[s.purpose] || s.purpose}
                                 </div>
-                                <div className={`truncate ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                  {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2 w-3 rounded align-text-bottom mr-0.5" />}
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : 'text-foreground/70'}`}>
+                                  {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom mr-0.5" />}
                                   {countryName(s.country)}
                                 </div>
-                                <div className={`truncate ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : 'text-foreground/70'}`}>
                                   {hostingLogoMap[s.hosting] ? (
-                                    <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-2.5 w-2.5 rounded object-contain align-text-bottom mr-0.5" />
+                                    <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom mr-0.5" />
                                   ) : null}
                                   {s.hosting}
                                 </div>
@@ -344,7 +344,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                               </div>
                             ))}
                             {dayPayments.length > 2 && (
-                              <span className={`text-[9px] ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground/60'}`}>
+                              <span className={`text-[10px] ${isSelected ? 'text-primary-foreground/60' : 'text-foreground/60'}`}>
                                 +{dayPayments.length - 2}
                               </span>
                             )}

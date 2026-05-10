@@ -23,6 +23,7 @@ import { IntegrationsSettings } from '@/components/IntegrationsSettings'
 import { LoginPage } from '@/components/LoginPage'
 import { FAQPage } from '@/components/FAQPage'
 import { UptimePage } from '@/components/UptimePage'
+import { UptimeSettings } from '@/components/UptimeSettings'
 import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check, Wifi } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 import { exchangeRatesApi } from '@/api/client'
@@ -30,7 +31,7 @@ import { dispatchRatesUpdated } from '@/lib/utils'
 import { updateFavicon } from '@/config/themes'
 
 type View = 'dashboard' | 'servers' | 'billing' | 'uptime' | 'activity' | 'settings' | 'faq'
-type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations'
+type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations' | 'uptime'
 
 const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
 
@@ -51,7 +52,7 @@ export default function App() {
   const viewFromPath = location.pathname === '/' ? 'servers' : location.pathname.split('/')[1]
   const activeView = (['dashboard', 'servers', 'billing', 'uptime', 'activity', 'settings', 'faq'].includes(viewFromPath) ? viewFromPath : 'servers') as View
   const rawTab = location.pathname.split('/')[2]
-  const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' ? rawTab : 'general') as SettingsTab
+  const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' || rawTab === 'uptime' ? rawTab : 'general') as SettingsTab
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [gradientBg, setGradientBg] = useState(() => {
@@ -536,7 +537,7 @@ export default function App() {
             <div key="settings" className="animate-view-enter">
             <div>
               <div className="mb-6 flex gap-1 rounded-lg border border-border/50 bg-card p-1">
-                {(['general', 'appearance', 'hostings', 'integrations'] as const).map((tab) => (
+                {(['general', 'appearance', 'hostings', 'integrations', 'uptime'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => navigate('/settings/' + tab)}
@@ -548,6 +549,7 @@ export default function App() {
                     {tab === 'appearance' && 'Внешний вид'}
                     {tab === 'hostings' && 'Хостинги'}
                     {tab === 'integrations' && 'Интеграции'}
+                    {tab === 'uptime' && 'Аптайм'}
                   </button>
                 ))}
               </div>
@@ -566,6 +568,7 @@ export default function App() {
                 </div>
               )}
               {settingsTab === 'integrations' && <IntegrationsSettings onViewChange={(v) => navigate('/' + v)} />}
+              {settingsTab === 'uptime' && <UptimeSettings />}
             </div>
             </div>
           )}

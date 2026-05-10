@@ -45,7 +45,7 @@ def get_monitors(db: Session = Depends(get_db)):
         ).order_by(UptimeCheck.checked_at.desc()).first()
         recent_checks = db.query(UptimeCheck).filter(
             UptimeCheck.monitor_id == m.id
-        ).order_by(UptimeCheck.checked_at.desc()).limit(24).all()
+        ).order_by(UptimeCheck.checked_at.desc()).all()
         recent_checks.reverse()
         uptime_24h = _calc_uptime(db, m.id, now - timedelta(hours=24))
         uptime_7d = _calc_uptime(db, m.id, now - timedelta(days=7))
@@ -129,3 +129,9 @@ async def check_now(monitor_id: UUID, db: Session = Depends(get_db)):
         "error": error,
         "checked_at": check.checked_at.isoformat() if check.checked_at else None,
     }
+
+
+@router.post("/restart-scheduler")
+def restart_scheduler():
+    from app.services.uptime_checker import restart_scheduler as _restart
+    return _restart()

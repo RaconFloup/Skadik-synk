@@ -1,12 +1,13 @@
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.database import SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
+from app.models.setting import AppSetting
 
 scheduler = BackgroundScheduler()
 
@@ -71,17 +72,88 @@ def _run_all_checks():
         db.close()
 
 
+def _get_interval() -> int:
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_check_interval").first()
+        return int(row.value) if row and row.value else 60
+    except:
+        return 60
+    finally:
+        db.close()
+
+
+def _get_retention_days() -> int:
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_retention_days").first()
+        return int(row.value) if row and row.value else 90
+    except:
+        return 90
+    finally:
+        db.close()
+
+
+def _cleanup_old_checks():
+    days = _get_retention_days()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    db: Session = SessionLocal()
+    try:
+        deleted = db.query(UptimeCheck).filter(UptimeCheck.checked_at < cutoff).delete()
+        db.commit()
+        if deleted:
+            print(f"Uptime cleanup: deleted {deleted} checks older than {days} days")
+    except Exception as e:
+        print(f"Uptime cleanup error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _schedule_cleanup():
+    if scheduler.get_job("uptime_cleanup"):
+        scheduler.remove_job("uptime_cleanup")
+    scheduler.add_job(
+        _cleanup_old_checks,
+        "interval",
+        days=1,
+        id="uptime_cleanup",
+        replace_existing=True,
+    )
+
+
 def start_scheduler():
     if scheduler.get_job("uptime_checker"):
-        return
+        scheduler.remove_job("uptime_checker")
+    interval = _get_interval()
     scheduler.add_job(
         _run_all_checks,
         "interval",
-        seconds=30,
+        seconds=interval,
         id="uptime_checker",
         replace_existing=True,
     )
-    scheduler.start()
+    _schedule_cleanup()
+    _cleanup_old_checks()
+    if not scheduler.running:
+        scheduler.start()
+
+
+def restart_scheduler():
+    if scheduler.get_job("uptime_checker"):
+        scheduler.remove_job("uptime_checker")
+    interval = _get_interval()
+    scheduler.add_job(
+        _run_all_checks,
+        "interval",
+        seconds=interval,
+        id="uptime_checker",
+        replace_existing=True,
+    )
+    _schedule_cleanup()
+    if not scheduler.running:
+        scheduler.start()
+    return {"interval": interval, "retention_days": _get_retention_days()}
 
 
 def stop_scheduler():

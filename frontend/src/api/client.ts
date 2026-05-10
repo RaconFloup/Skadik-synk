@@ -110,6 +110,8 @@ export const uptimeApi = {
     api.get<UptimeCheck[]>(`/uptime/${id}/checks`, { params: { limit } }).then(res => res.data),
   checkNow: (id: string) =>
     api.post(`/uptime/${id}/check-now`).then(res => res.data),
+  restartScheduler: () =>
+    api.post('/uptime/restart-scheduler').then(res => res.data),
 }
 
 export default api
