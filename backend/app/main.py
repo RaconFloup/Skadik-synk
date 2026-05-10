@@ -10,6 +10,7 @@ from app.routers.telegram import router as telegram_router
 from app.routers.exchange_rates import router as exchange_rates_router
 from app.routers.auth import router as auth_router
 from app.routers.uptime import router as uptime_router
+from app.routers.flags import router as flags_router
 from app.dependencies.auth import auth_middleware
 from app.services.uptime_checker import start_scheduler
 
@@ -34,6 +35,7 @@ app.include_router(telegram_router)
 app.include_router(exchange_rates_router)
 app.include_router(auth_router)
 app.include_router(uptime_router)
+app.include_router(flags_router)
 
 
 @app.on_event("startup")

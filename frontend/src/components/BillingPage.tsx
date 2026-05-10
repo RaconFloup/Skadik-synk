@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import type { Server, PurposeItem } from '@/types'
-import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban } from 'lucide-react'
+import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban, ExternalLink } from 'lucide-react'
 import { settingsApi, hostingApi, serversApi, exchangeRatesApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -61,6 +61,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
   const [loadingRates, setLoadingRates] = useState(true)
   const [hostingLogoMap, setHostingLogoMap] = useState<Record<string, string>>({})
+  const [hostingUrlMap, setHostingUrlMap] = useState<Record<string, string>>({})
   const [purposeMap, setPurposeMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -72,9 +73,13 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
       const settings = rawSettings as Record<string, string>
       if (settings.base_currency) setBaseCurrency(settings.base_currency)
       if (data?.rates) setRates(data.rates)
-      const map: Record<string, string> = {}
-      hostings.forEach((h) => { if (h.name) map[h.name] = h.logo_url || '' })
-      setHostingLogoMap(map)
+      const logoMap: Record<string, string> = {}
+      const urlMap: Record<string, string> = {}
+      hostings.forEach((h) => {
+        if (h.name) { logoMap[h.name] = h.logo_url || ''; urlMap[h.name] = h.url || '' }
+      })
+      setHostingLogoMap(logoMap)
+      setHostingUrlMap(urlMap)
       if (settings.purposes) {
         try {
           const items: PurposeItem[] = JSON.parse(settings.purposes)
@@ -396,6 +401,11 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                               <span>{flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom" />}{countryName(s.country)}</span>
                               <span>·</span>
                               <span>{hostingLogoMap[s.hosting] ? <img src={hostingLogoMap[s.hosting]} alt="" className="inline-block h-3 w-3 rounded object-contain align-text-bottom" /> : null}{s.hosting}</span>
+                              {hostingUrlMap[s.hosting] && (
+                                <a href={hostingUrlMap[s.hosting]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-muted-foreground/50 hover:text-foreground transition-colors" title={hostingUrlMap[s.hosting]}>
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
                             </div>
                             <div className="mt-1 text-xs text-muted-foreground">
                               {s.cost && <span className="font-semibold text-emerald-400">{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}

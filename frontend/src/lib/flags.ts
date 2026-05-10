@@ -1,13 +1,4 @@
-const FLAG_MAP: Record<string, string> = {
-  Poland: 'pl',
-  Germany: 'de',
-  USA: 'us',
-  Russia: 'ru',
-  Netherlands: 'nl',
-  France: 'fr',
-  UK: 'gb',
-  Ukraine: 'ua',
-}
+import { COUNTRIES } from '@/types'
 
 const EMOJI_MAP: Record<string, string> = {
   '\u{1F1F5}\u{1F1F1}': 'pl',
@@ -29,11 +20,13 @@ export function normalizeCountry(raw: string): string {
 }
 
 export function countryName(raw: string): string {
+  const found = COUNTRIES.find((c) => c.value === raw)
+  if (found) return found.label
   const normalized = normalizeCountry(raw)
   return normalized.replace(/^[^\s]+\s/, '').trim()
 }
 
 export function flagImg(raw: string): string | null {
   const code = normalizeCountry(raw).split(/\s/)[0]
-  return code && Object.values(FLAG_MAP).includes(code) ? `https://flagcdn.com/w20/${code}.png` : null
+  return code && /^[a-z]{2}$/.test(code) ? `/api/flags/${code}.png` : null
 }

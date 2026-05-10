@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { hostingApi } from '@/api/client'
 import type { Hosting, PurposeItem, ServerCreate } from '@/types'
-import { DEFAULT_PURPOSES, COUNTRIES, CURRENCIES, CYCLES, HOSTING_SUGGESTIONS } from '@/types'
-import { flagImg, countryName } from '@/lib/flags'
+import { DEFAULT_PURPOSES, CURRENCIES, CYCLES } from '@/types'
+
 import { Button } from './ui/button'
+import { CountryCombobox } from './CountryCombobox'
+import { HostingCombobox } from './HostingCombobox'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import {
@@ -13,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { Loader2, ServerIcon } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 interface ServerFormProps {
   onSubmit: (data: ServerCreate) => void
@@ -26,7 +28,7 @@ interface ServerFormProps {
 const defaultFormData = (initial?: ServerCreate): ServerCreate => initial ?? {
   purpose: 'NODE',
   hosting: '',
-  country: 'pl Poland',
+  country: '',
   ip: '',
   ssh_port: 22,
   ssh_username: 'root',
@@ -43,20 +45,6 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes 
   const purposeOptions = purposes ?? DEFAULT_PURPOSES
   const [formData, setFormData] = useState<ServerCreate>(() => defaultFormData(initialData))
   const [hostings, setHostings] = useState<Hosting[]>([])
-
-  const hostingOptions = useMemo(() => {
-    const list: Hosting[] = hostings.length > 0
-      ? hostings
-      : HOSTING_SUGGESTIONS.map((n) => ({ id: n, name: n } as Hosting))
-
-    const names = new Set(list.map((h) => h.name))
-
-    if (formData.hosting && !names.has(formData.hosting)) {
-      list.push({ id: formData.hosting, name: formData.hosting } as Hosting)
-    }
-
-    return list
-  }, [hostings, formData.hosting])
 
   useEffect(() => {
     hostingApi.getAll().then(setHostings).catch(() => {})
@@ -109,83 +97,24 @@ export function ServerForm({ onSubmit, onCancel, loading, initialData, purposes 
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Страна</label>
-          <Select
+          <CountryCombobox
             value={formData.country}
-            onValueChange={(v) => updateField('country', v)}
+            onChange={(v) => updateField('country', v)}
             disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue>
-                {formData.country && (() => {
-                  const url = flagImg(formData.country)
-                  return url ? (
-                    <span className="flex items-center gap-1.5">
-                      <img src={url} alt="" className="h-4 w-5 rounded object-cover" />
-                      {countryName(formData.country)}
-                    </span>
-                  ) : (
-                    countryName(formData.country)
-                  )
-                })()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => {
-                const url = flagImg(c.value)
-                return (
-                  <SelectItem key={c.value} value={c.value}>
-                    <span className="flex items-center gap-1.5">
-                      {url && <img src={url} alt="" className="h-4 w-5 rounded object-cover" />}
-                      {c.label}
-                    </span>
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Хостинг *</label>
-          <Select
+          <HostingCombobox
             value={formData.hosting}
-            onValueChange={(v) => updateField('hosting', v)}
+            onChange={(v) => updateField('hosting', v)}
+            hostings={hostings}
+            onHostingsChange={() => hostingApi.getAll().then(setHostings).catch(() => {})}
             disabled={loading}
-          >
-            <SelectTrigger>
-              {formData.hosting ? (
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const h = hostings.find((x) => x.name === formData.hosting)
-                    return h?.logo_url ? (
-                      <img src={h.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
-                    ) : (
-                      <ServerIcon className="h-4 w-4 text-muted-foreground" />
-                    )
-                  })()}
-                  <span>{formData.hosting}</span>
-                </div>
-              ) : (
-                <span className="text-muted-foreground">Выберите хостинг</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {hostingOptions.map((h) => (
-                <SelectItem key={h.id} value={h.name}>
-                  <div className="flex items-center gap-2">
-                    {(h as Hosting).logo_url ? (
-                      <img src={(h as Hosting).logo_url!} alt="" className="h-4 w-4 rounded object-contain" />
-                    ) : (
-                      <ServerIcon className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span>{h.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">IP адрес *</label>

@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Loader2, Trash2, Play, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Plus, Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 
 function formatMs(ms: number | null | undefined): string {
   if (ms == null) return '—'
@@ -26,8 +26,6 @@ export function UptimePage() {
   const [addPort, setAddPort] = useState('22')
   const [addServerId, setAddServerId] = useState('')
   const [saving, setSaving] = useState(false)
-  const [checkingId, setCheckingId] = useState<string | null>(null)
-
   const load = useCallback(async () => {
     try {
       const data = await uptimeApi.getAll()
@@ -60,23 +58,6 @@ export function UptimePage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await uptimeApi.delete(id)
-      setMonitors((prev) => prev.filter((m) => m.monitor.id !== id))
-    } catch {}
-  }
-
-  const handleCheckNow = async (id: string) => {
-    setCheckingId(id)
-    try {
-      await uptimeApi.checkNow(id)
-      load()
-    } catch {} finally {
-      setCheckingId(null)
-    }
-  }
-
   const handleToggle = async (id: string, active: boolean) => {
     try {
       await uptimeApi.update(id, { is_active: !active })
@@ -96,10 +77,6 @@ export function UptimePage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={'h-4 w-4' + (loading ? ' animate-spin' : '')} />
-          </Button>
-          <Button size="sm" onClick={() => setShowAdd(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Добавить
           </Button>
         </div>
       </div>
@@ -144,15 +121,12 @@ export function UptimePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCheckNow(monitor.id)} disabled={checkingId === monitor.id}>
-                        {checkingId === monitor.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggle(monitor.id, monitor.is_active)}>
-                        <div className={'h-3.5 w-3.5 rounded-sm border-2 ' + (monitor.is_active ? 'bg-emerald-400 border-emerald-400' : 'border-muted-foreground/40')} />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(monitor.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <button
+                        onClick={() => handleToggle(monitor.id, monitor.is_active)}
+                        className={'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ' + (monitor.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/30')}
+                      >
+                        <span className={'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ' + (monitor.is_active ? 'translate-x-4' : 'translate-x-0.5')} />
+                      </button>
                     </div>
                   </div>
 
