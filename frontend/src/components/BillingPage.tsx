@@ -110,36 +110,43 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const currentMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
 
   const serversWithPayments = useMemo(() => {
-    return servers.filter((s) => s.next_payment && s.status === 'active')
+    return servers.filter((s) => s.status === 'active' && (s.next_payment || s.last_paid_at))
   }, [servers])
-
-  const sortedPayments = useMemo(() => {
-    return [...serversWithPayments].sort((a, b) => {
-      if (!a.next_payment || !b.next_payment) return 0
-      return a.next_payment.localeCompare(b.next_payment)
-    })
-  }, [serversWithPayments])
 
   const paymentsByDate = useMemo(() => {
     const map: Record<string, Server[]> = {}
     serversWithPayments.forEach((s) => {
-      if (!s.next_payment) return
-      if (!map[s.next_payment]) map[s.next_payment] = []
-      map[s.next_payment].push(s)
+      if (s.next_payment) {
+        if (!map[s.next_payment]) map[s.next_payment] = []
+        map[s.next_payment].push(s)
+      }
+      if (s.last_paid_at && s.last_paid_at !== s.next_payment) {
+        if (!map[s.last_paid_at]) map[s.last_paid_at] = []
+        if (!map[s.last_paid_at].find(x => x.id === s.id)) map[s.last_paid_at].push(s)
+      }
     })
     return map
   }, [serversWithPayments])
 
   const paymentsByMonth = useMemo(() => {
     const groups: Record<string, Server[]> = {}
-    sortedPayments.forEach((s) => {
-      if (!s.next_payment) return
-      const key = s.next_payment.slice(0, 7)
-      if (!groups[key]) groups[key] = []
-      groups[key].push(s)
+    serversWithPayments.forEach((s) => {
+      if (s.next_payment) {
+        const key = s.next_payment.slice(0, 7)
+        if (!groups[key]) groups[key] = []
+        if (!groups[key].find(x => x.id === s.id)) groups[key].push(s)
+      }
+      if (s.last_paid_at) {
+        const key = s.last_paid_at.slice(0, 7)
+        if (!groups[key]) groups[key] = []
+        if (!groups[key].find(x => x.id === s.id)) groups[key].push(s)
+      }
+    })
+    Object.keys(groups).forEach((k) => {
+      groups[k].sort((a, b) => (a.next_payment || '').localeCompare(b.next_payment || ''))
     })
     return groups
-  }, [sortedPayments])
+  }, [serversWithPayments])
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
   const visiblePayments = (paymentsByMonth[currentMonthKey] || []).slice().sort((a, b) => {
@@ -148,7 +155,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   })
 
   const totalMonthly = serversWithPayments.reduce((sum, s) => sum + toBaseCurrency(s.cost || 0, s.currency || 'USD'), 0)
-  const overdueCount = sortedPayments.filter((s) => s.next_payment && daysUntil(s.next_payment) < 0).length
+  const overdueCount = serversWithPayments.filter((s) => s.next_payment && !s.last_paid_at && daysUntil(s.next_payment) < 0).length
 
   const year = currentMonth.getFullYear()
   const month = currentMonth.getMonth()
