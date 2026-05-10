@@ -202,6 +202,18 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     }
   }, [notRenewDialogServer, onServersChange])
 
+  const unmarkPaid = useCallback(async (server: Server) => {
+    setActionLoading(server.id)
+    try {
+      await serversApi.update(server.id, { last_paid_at: null })
+      onServersChange?.()
+    } catch {
+      console.error('Failed to unmark paid')
+    } finally {
+      setActionLoading(null)
+    }
+  }, [onServersChange])
+
   function getCalendarDays(): (number | null)[] {
     const days: (number | null)[] = []
     for (let i = 0; i < firstDayOfWeek; i++) days.push(null)
@@ -330,7 +342,11 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                               <div key={s.id} className={`leading-tight text-[10px] ${!isSelected && idx > 0 ? 'border-t border-border/20 pt-0.5' : ''}`}>
                                 <div className={`flex items-center gap-1 font-semibold truncate ${isSelected ? 'text-primary-foreground' : isPaid ? 'text-muted-foreground/50' : 'text-foreground'}`}>
                                   {purposeMap[s.purpose] || s.purpose}
-                                  {isPaid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-emerald-400" />}
+                                  {isPaid && (
+                                    <button onClick={(e) => { e.stopPropagation(); unmarkPaid(s) }} disabled={actionLoading === s.id} className="inline-flex items-center text-emerald-400 hover:text-emerald-300 transition-colors" title="Отменить оплату">
+                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
+                                    </button>
+                                  )}
                                 </div>
                                 <div className={`truncate ${isSelected ? 'text-primary-foreground/75' : isPaid ? 'text-muted-foreground/30' : 'text-foreground/70'}`}>
                                   {flagImg(s.country) && <img src={flagImg(s.country)!} alt="" className="inline-block h-2.5 w-3.5 rounded align-text-bottom mr-0.5" />}
@@ -439,9 +455,9 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                           </button>
                         </div>
                         ) : (
-                          <div className="flex items-center text-emerald-400/40">
+                          <button onClick={() => unmarkPaid(s)} disabled={actionLoading === s.id} className="flex items-center text-emerald-400/60 hover:text-emerald-400 transition-colors" title="Отменить оплату">
                             <CheckCircle2 className="h-5 w-5" />
-                          </div>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -570,9 +586,9 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                           </button>
                         </div>
                         ) : (
-                          <div className="flex items-center text-emerald-400/40">
+                          <button onClick={() => unmarkPaid(s)} disabled={actionLoading === s.id} className="flex items-center text-emerald-400/60 hover:text-emerald-400 transition-colors" title="Отменить оплату">
                             <CheckCircle2 className="h-5 w-5" />
-                          </div>
+                          </button>
                         )}
                       </div>
                     </div>
