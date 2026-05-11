@@ -575,42 +575,37 @@ export function UptimePage() {
                                   }
 
                                   return (
-                                    <div className="flex gap-1">
-                                      <div className="flex flex-col gap-px text-[8px] text-muted-foreground/40 leading-none pt-4">
-                                        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((d, i) => (
-                                          <span key={d} className="h-2.5 flex items-center">{i % 2 === 0 ? d : ''}</span>
+                                    <div className="overflow-x-auto">
+                                      <div className="inline-flex gap-px">
+                                        <div className="flex flex-col gap-px">
+                                          <div className="h-3" />
+                                          {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
+                                            <div key={d} className="h-2.5 flex items-center text-[8px] text-muted-foreground/40 leading-none">{d}</div>
+                                          ))}
+                                        </div>
+                                        {weeks.map((wk, wi) => (
+                                          <div key={wi} className="flex flex-col gap-px items-center">
+                                            <div className="h-3 text-[8px] text-muted-foreground/40 leading-none flex items-end">
+                                              {wk.month}
+                                            </div>
+                                            {wk.dates.map((date) => {
+                                              const data = dayPct.get(date)
+                                              const pct = data ? data.pct : 0
+                                              const total = data ? data.total : 0
+                                              const color = total === 0 ? 'bg-muted-foreground/10'
+                                                : pct === 1 ? 'bg-emerald-500/70'
+                                                : pct >= 0.5 ? 'bg-amber-500/50'
+                                                : 'bg-red-500/60'
+                                              return (
+                                                <div
+                                                  key={date}
+                                                  className={`h-2.5 w-2.5 rounded-sm ${color}`}
+                                                  title={`${date}: ${total > 0 ? `${Math.round(pct * 100)}%` : 'нет данных'}${total > 0 ? ` (${total} проверок)` : ''}`}
+                                                />
+                                              )
+                                            })}
+                                          </div>
                                         ))}
-                                      </div>
-                                      <div className="flex-1 min-w-0 overflow-x-auto">
-                                        <div className="flex gap-px">
-                                          {weeks.map((wk, wi) => (
-                                            <div key={wi} className="flex flex-col gap-px">
-                                              {wk.dates.map((date) => {
-                                                const data = dayPct.get(date)
-                                                const pct = data ? data.pct : 0
-                                                const total = data ? data.total : 0
-                                                const color = total === 0 ? 'bg-muted-foreground/10'
-                                                  : pct === 1 ? 'bg-emerald-500/70'
-                                                  : pct >= 0.5 ? 'bg-amber-500/50'
-                                                  : 'bg-red-500/60'
-                                                return (
-                                                  <div
-                                                    key={date}
-                                                    className={`h-2.5 w-2.5 rounded-sm ${color}`}
-                                                    title={`${date}: ${total > 0 ? `${Math.round(pct * 100)}%` : 'нет данных'}${total > 0 ? ` (${total} проверок)` : ''}`}
-                                                  />
-                                                )
-                                              })}
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <div className="flex gap-px mt-1">
-                                          {weeks.map((wk, wi) => (
-                                            <div key={wi} className="text-[8px] text-muted-foreground/40 leading-none" style={{ width: '10px' }}>
-                                              {wk.month && <span className="block truncate">{wk.month}</span>}
-                                            </div>
-                                          ))}
-                                        </div>
                                       </div>
                                     </div>
                                   )
