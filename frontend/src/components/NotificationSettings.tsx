@@ -3,6 +3,7 @@ import { settingsApi, telegramApi } from '@/api/client'
 
 const DEFAULT_UP_TEMPLATE = '✅ <b>{name}</b>\nМониторинг аптайма: сервер доступен'
 const DEFAULT_DOWN_TEMPLATE = '❌ <b>{name}</b>\nМониторинг аптайма: недоступен\n{error}'
+const DEFAULT_BILLING_TEMPLATE = '📅 Статус аренды: {date}\n{groups}\n---\n💰 Итого: {total}'
 
 function ToggleSwitch({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string }) {
   return (
@@ -61,7 +62,7 @@ export function NotificationSettings() {
       setBillingTopicId(data['billing_notify_topic_id'] || '')
       setBillingEnabled(data['billing_notify_enabled'] === '1')
       setBillingTime(data['billing_notify_time'] || '09:00')
-      setBillingTemplate(data['billing_notify_template'] || '')
+      setBillingTemplate(data['billing_notify_template'] || DEFAULT_BILLING_TEMPLATE)
     }).catch(() => showToast('Ошибка загрузки настроек', 'error'))
   }, [])
 

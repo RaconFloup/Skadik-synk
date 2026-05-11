@@ -1,9 +1,48 @@
-from datetime import date, datetime, timezone, timedelta
+from datetime import date
 
 from app.database import SessionLocal
 from app.models.setting import AppSetting
 from app.models.server import Server
 from app.services.telegram_notify import _try_send, _save_to_queue
+
+COUNTRY_RU: dict[str, str] = {
+    "ru": "\U0001F1F7\U0001F1FA Россия",
+    "us": "\U0001F1FA\U0001F1F8 США",
+    "de": "\U0001F1E9\U0001F1EA Германия",
+    "nl": "\U0001F1F3\U0001F1F1 Нидерланды",
+    "fr": "\U0001F1EB\U0001F1F7 Франция",
+    "gb": "\U0001F1EC\U0001F1E7 Великобритания",
+    "pl": "\U0001F1F5\U0001F1F1 Польша",
+    "ua": "\U0001F1FA\U0001F1E6 Украина",
+    "lt": "\U0001F1F1\U0001F1F9 Литва",
+    "lv": "\U0001F1F1\U0001F1FB Латвия",
+    "ee": "\U0001F1EA\U0001F1EA Эстония",
+    "fi": "\U0001F1EB\U0001F1EE Финляндия",
+    "se": "\U0001F1F8\U0001F1EA Швеция",
+    "no": "\U0001F1F3\U0001F1F4 Норвегия",
+    "dk": "\U0001F1E9\U0001F1F0 Дания",
+    "cz": "\U0001F1E8\U0001F1FF Чехия",
+    "sk": "\U0001F1F8\U0001F1F0 Словакия",
+    "hu": "\U0001F1ED\U0001F1FA Венгрия",
+    "ro": "\U0001F1F7\U0001F1F4 Румыния",
+    "bg": "\U0001F1E7\U0001F1EC Болгария",
+    "gr": "\U0001F1EC\U0001F1F7 Греция",
+    "it": "\U0001F1EE\U0001F1F9 Италия",
+    "es": "\U0001F1EA\U0001F1F8 Испания",
+    "pt": "\U0001F1F5\U0001F1F9 Португалия",
+    "at": "\U0001F1E6\U0001F1F9 Австрия",
+    "ch": "\U0001F1E8\U0001F1ED Швейцария",
+    "be": "\U0001F1E7\U0001F1EA Бельгия",
+    "ie": "\U0001F1EE\U0001F1EA Ирландия",
+    "sg": "\U0001F1F8\U0001F1EC Сингапур",
+    "jp": "\U0001F1EF\U0001F1F5 Япония",
+    "kr": "\U0001F1F0\U0001F1F7 Южная Корея",
+    "in": "\U0001F1EE\U0001F1F3 Индия",
+    "au": "\U0001F1E6\U0001F1FA Австралия",
+    "ca": "\U0001F1E8\U0001F1E6 Канада",
+    "br": "\U0001F1E7\U0001F1F7 Бразилия",
+    "za": "\U0001F1FF\U0001F1E6 ЮАР",
+}
 
 
 def _get_settings(keys: list[str]) -> dict:
@@ -17,23 +56,42 @@ def _get_settings(keys: list[str]) -> dict:
         db.close()
 
 
+def _country_ru(raw: str) -> str:
+    code = raw.split(" ")[0] if raw else ""
+    return COUNTRY_RU.get(code, raw)
+
+
+def _load_purpose_labels() -> dict[str, str]:
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "purposes").first()
+        if row and row.value:
+            import json
+            items = json.loads(row.value)
+            return {p["value"]: p["label"] for p in items if isinstance(p, dict)}
+    except:
+        pass
+    finally:
+        db.close()
+    return {}
+
+
 def _days_remaining(next_payment: date | None) -> int | None:
     if not next_payment:
         return None
-    diff = (next_payment - date.today()).days
-    return diff
+    return (next_payment - date.today()).days
 
 
-def _severity_icon(days: int | None) -> str:
+def _icon(not_renewing: bool, days: int | None) -> str:
+    if not_renewing:
+        return "\U0001f4a4"
     if days is None:
         return ""
     if days <= 1:
-        return "\U0001f6d1"  # 🆑 red
+        return "\U0001f6d1"
     if days <= 7:
-        return "\u26a0\ufe0f"  # ⚠️ orange
-    if days <= 14:
-        return "\U0001f4a4"  # 💤 yellow
-    return "\u2705"  # ✅ green
+        return "\u26a0\ufe0f"
+    return "\u2705"
 
 
 def _purpose_emoji(purpose: str) -> str:
@@ -45,10 +103,19 @@ def _purpose_emoji(purpose: str) -> str:
     return mapping.get(purpose, "\U0001f4e1")
 
 
+DEFAULT_REPORT_TEMPLATE = (
+    "\U0001f4c5 Статус аренды: {date}\n"
+    "{groups}\n"
+    "---\n"
+    "\U0001f4b0 Итого: {total}"
+)
+
+
 def _generate_report(template: str) -> str:
     db = SessionLocal()
     try:
         servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
+        purpose_labels = _load_purpose_labels()
     finally:
         db.close()
 
@@ -64,44 +131,35 @@ def _generate_report(template: str) -> str:
 
     all_lines: list[str] = []
     total_cost = 0.0
-    server_count = 0
     for purpose in order:
         if purpose not in groups:
             continue
         grp_servers = groups[purpose]
-        label = purpose  # e.g. PANEL, NODE, SERVICES
+        label = purpose_labels.get(purpose, purpose)
         emoji = _purpose_emoji(purpose)
         all_lines.append(f"\n{emoji} {label}")
         for i, s in enumerate(grp_servers, 1):
             cost_val = float(s.cost) if s.cost else 0
             total_cost += cost_val
-            server_count += 1
             days = _days_remaining(s.next_payment)
-            days_str = f"{days} \u0434\u043d." if days is not None else "—"
-            icon = _severity_icon(days)
+            days_str = f"{days} дн." if days is not None else "—"
+            icon = _icon(bool(s.not_renewing), days)
             currency = s.currency or ""
             cost_str = f"{cost_val:.2f}{currency}" if cost_val else "—"
             prefix = "\u2514" if i == len(grp_servers) else "\u251c"
-            name = s.purpose or "SERVER"
-            country = s.country or ""
+            name = label
+            country = _country_ru(s.country or "")
             hosting = s.hosting or ""
-            server_entry = f"{prefix} {name} [{country}] {hosting} \u2014 {cost_str} \u2014 {days_str} {icon}"
+            server_entry = f"{prefix} {name} [{country}] {hosting} — {cost_str} — {days_str} {icon}"
             all_lines.append(server_entry)
 
     total_str = f"{total_cost:.2f}"
-    footer = f"\n---\n\U0001f4b0 \u0418\u0442\u043e\u0433\u043e: {total_str}"
 
-    all_lines.append(footer)
+    if not template:
+        template = DEFAULT_REPORT_TEMPLATE
 
-    default_report = "\n".join([
-        f"\U0001f4c5 \u0421\u0442\u0430\u0442\u0443\u0441 \u0430\u0440\u0435\u043d\u0434\u044b: {today_str}"
-    ] + all_lines)
-
-    if template:
-        groups_text = "\n".join(all_lines)
-        report = template.replace("{date}", today_str).replace("{groups}", groups_text).replace("{total}", total_str)
-    else:
-        report = default_report
+    groups_text = "\n".join(all_lines)
+    report = template.replace("{date}", today_str).replace("{groups}", groups_text).replace("{total}", total_str)
 
     return report
 
