@@ -26,7 +26,7 @@ function getStatus(mon: UptimeMonitorWithStatus, retryCount: number): 'up' | 'pe
   return fails >= retryCount ? 'down' : 'pending'
 }
 
-function Timeline({ checks, retryCount }: { checks: { id: string; is_up: boolean; response_time_ms?: number | null; error?: string | null; checked_at: string }[]; retryCount: number }) {
+function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string; is_up: boolean; response_time_ms?: number | null; error?: string | null; checked_at: string }[]; retryCount: number; interval?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const [maxBars, setMaxBars] = useState(48)
 
@@ -44,21 +44,48 @@ function Timeline({ checks, retryCount }: { checks: { id: string; is_up: boolean
     return () => ro.disconnect()
   }, [])
 
-  const colors: string[] = []
+  const items: { id: string; color: string; title: string }[] = []
   let consecutiveFails = 0
+  let prevMs: number | null = null
+  const expectedMs = (interval || 60) * 1000
+
   for (const c of checks) {
+    const ctMs = new Date(c.checked_at).getTime()
+    if (prevMs !== null) {
+      const gapMs = ctMs - prevMs
+      if (gapMs > expectedMs * 3) {
+        const missed = Math.floor(gapMs / expectedMs) - 1
+        for (let n = 0; n < missed; n++) {
+          const gapMs2 = prevMs + expectedMs * (n + 1)
+          items.push({
+            id: `gap-${c.id}-${n}`,
+            color: 'bg-muted-foreground/20',
+            title: `Мониторинг отключён\n${new Date(gapMs2).toLocaleString('ru-RU')}`,
+          })
+        }
+      }
+    }
     if (c.is_up) {
       consecutiveFails = 0
-      colors.push('bg-emerald-500/60')
     } else {
       consecutiveFails++
-      colors.push(consecutiveFails >= retryCount ? 'bg-red-500/60' : 'bg-amber-500/40')
     }
+    const color = c.is_up
+      ? 'bg-emerald-500/60'
+      : consecutiveFails >= retryCount
+        ? 'bg-red-500/60'
+        : 'bg-amber-500/40'
+    items.push({
+      id: c.id,
+      color,
+      title: `${c.is_up ? '✓ Доступен' : '✗ Ошибка'}${c.response_time_ms ? ` (${c.response_time_ms}ms)` : ''}\n${c.error || ''}\n${new Date(c.checked_at).toLocaleString('ru-RU')}`,
+    })
+    prevMs = ctMs
   }
 
-  const visible = checks.slice(-maxBars)
-  const visibleColors = colors.slice(-maxBars)
-  const placeholders = maxBars - visible.length
+  const totalBars = maxBars
+  const visible = items.slice(-totalBars)
+  const placeholders = totalBars - visible.length
 
   return (
     <div ref={ref} className="flex items-end gap-px h-8">
@@ -69,12 +96,12 @@ function Timeline({ checks, retryCount }: { checks: { id: string; is_up: boolean
           className={`w-1.5 flex-none h-5 rounded-sm bg-muted-foreground/10`}
         />
       ))}
-      {visible.map((c, idx) => (
+      {visible.map((item) => (
         <div
-          key={c.id}
-          className={'w-1.5 flex-none h-5 rounded-sm cursor-pointer transition-opacity hover:opacity-80 ' + visibleColors[idx]}
+          key={item.id}
+          className={'w-1.5 flex-none h-5 rounded-sm cursor-pointer transition-opacity hover:opacity-80 ' + item.color}
           style={{ animation: 'barIn 0.3s ease-out' }}
-          title={`${c.is_up ? '✓ Доступен' : '✗ Ошибка'}${c.response_time_ms ? ` (${c.response_time_ms}ms)` : ''}\n${c.error || ''}\n${new Date(c.checked_at).toLocaleString('ru-RU')}`}
+          title={item.title}
         />
       ))}
     </div>
@@ -339,7 +366,7 @@ export function UptimePage() {
                           </div>
 
                           <div className="mt-3">
-                            <Timeline checks={recent_checks} retryCount={retryCount} />
+                            <Timeline checks={recent_checks} retryCount={retryCount} interval={checkInterval} />
                           </div>
 
                           <div className="mt-2.5 flex items-center justify-between text-[11px]">
@@ -371,42 +398,66 @@ export function UptimePage() {
                         {expandedId === monitor.id && (
                           <div className="border-t border-border/40 px-4 py-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Статистика по дням</div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               {(() => {
-                                const daysMap = new Map<string, { up: number; down: number; total: number }>()
+                                const daysMap = new Map<string, { up: number; down: number; total: number; checks: { is_up: boolean; checked_at: string; response_time_ms?: number | null; id: string }[] }>()
                                 for (const c of recent_checks) {
                                   const day = new Date(c.checked_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
-                                  const entry = daysMap.get(day) || { up: 0, down: 0, total: 0 }
+                                  let entry = daysMap.get(day)
+                                  if (!entry) {
+                                    entry = { up: 0, down: 0, total: 0, checks: [] }
+                                    daysMap.set(day, entry)
+                                  }
                                   entry.total++
                                   if (c.is_up) entry.up++
                                   else entry.down++
+                                  entry.checks.push(c)
                                   daysMap.set(day, entry)
                                 }
                                 const days = Array.from(daysMap.entries()).reverse()
-                                const maxTotal = Math.max(...days.map(([, v]) => v.total), 1)
-                                return days.map(([day, stats]) => (
-                                  <div key={day} className="flex items-center gap-3 text-[11px]">
-                                    <span className="w-20 shrink-0 text-muted-foreground/60">{day}</span>
-                                    <div className="flex-1 flex gap-0.5 h-4 items-end">
-                                      <div className="flex-1 flex gap-0.5 h-full items-end">
-                                        <div
-                                          className="bg-emerald-500/60 rounded-sm transition-all"
-                                          style={{ height: `${(stats.up / maxTotal) * 100}%`, minHeight: stats.up > 0 ? '2px' : '0', flex: stats.up }}
-                                        />
-                                        {stats.down > 0 && (
-                                          <div
-                                            className="bg-red-500/60 rounded-sm transition-all"
-                                            style={{ height: `${(stats.down / maxTotal) * 100}%`, minHeight: '2px', flex: stats.down }}
-                                          />
-                                        )}
+                                return days.map(([day, stats]) => {
+                                  const checks = stats.checks.sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
+                                  const firstMs = new Date(checks[0].checked_at).getTime()
+                                  const lastMs = new Date(checks[checks.length - 1].checked_at).getTime()
+                                  const totalSpanMs = lastMs - firstMs
+                                  const segCount = 24
+                                  const segMs = totalSpanMs / segCount
+                                  const segments: string[] = []
+                                  for (let si = 0; si < segCount; si++) {
+                                    const segStart = firstMs + segMs * si
+                                    const segEnd = segStart + segMs
+                                    const inSeg = checks.filter((c) => {
+                                      const ct = new Date(c.checked_at).getTime()
+                                      return ct >= segStart && ct < segEnd
+                                    })
+                                    if (inSeg.length === 0) {
+                                      segments.push('bg-muted-foreground/15')
+                                    } else {
+const segUpCount = inSeg.filter((c) => c.is_up).length
+const pct = segUpCount / inSeg.length
+                                      if (pct === 1) segments.push('bg-emerald-500/60')
+                                      else if (pct >= 0.5) segments.push('bg-amber-500/40')
+                                      else segments.push('bg-red-500/60')
+                                    }
+                                  }
+                                  return (
+                                    <div key={day} className="flex items-center gap-2 text-[11px]">
+                                      <span className="w-16 shrink-0 text-muted-foreground/60">{day}</span>
+                                      <div className="flex flex-1 gap-px h-3 items-stretch rounded-sm overflow-hidden">
+                                        {segments.map((cls, si) => (
+                                          <div key={si} className={`flex-1 ${cls}`} />
+                                        ))}
                                       </div>
+                                      <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stats.up}</span>
+                                      {stats.down > 0 ? (
+                                        <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-red-400">{stats.down}</span>
+                                      ) : (
+                                        <span className="w-8 text-right shrink-0 text-muted-foreground/30">—</span>
+                                      )}
+                                      <span className="w-8 text-right shrink-0 text-muted-foreground/40">{stats.total}</span>
                                     </div>
-                                    <span className="w-12 text-right shrink-0 font-semibold tabular-nums">{stats.total}</span>
-                                    <span className="w-14 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stats.up}</span>
-                                    {stats.down > 0 && <span className="w-14 text-right shrink-0 font-semibold tabular-nums text-red-400">{stats.down}</span>}
-                                    {stats.down === 0 && <span className="w-14 text-right shrink-0 text-muted-foreground/30">—</span>}
-                                  </div>
-                                ))
+                                  )
+                                })
                               })()}
                             </div>
                           </div>

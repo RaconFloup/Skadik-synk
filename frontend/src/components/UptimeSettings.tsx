@@ -8,6 +8,7 @@ export function UptimeSettings() {
   const [interval, setInterval] = useState('60')
   const [retryCount, setRetryCount] = useState('3')
   const [retentionDays, setRetentionDays] = useState('90')
+  const [timeout, setTimeout_] = useState('5')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [restarting, setRestarting] = useState(false)
@@ -17,6 +18,7 @@ export function UptimeSettings() {
       if (s.uptime_check_interval) setInterval(s.uptime_check_interval)
       if (s.uptime_retry_count) setRetryCount(s.uptime_retry_count)
       if (s.uptime_retention_days) setRetentionDays(s.uptime_retention_days)
+      if (s.uptime_check_timeout) setTimeout_(s.uptime_check_timeout)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -27,6 +29,7 @@ export function UptimeSettings() {
         uptime_check_interval: interval,
         uptime_retry_count: retryCount,
         uptime_retention_days: retentionDays,
+        uptime_check_timeout: timeout,
       })
       await uptimeApi.restartScheduler()
     } finally {
@@ -40,6 +43,7 @@ export function UptimeSettings() {
       const result = await uptimeApi.restartScheduler()
       setInterval(String(result.interval))
       setRetentionDays(String(result.retention_days))
+      setTimeout_(String(result.timeout))
     } finally {
       setRestarting(false)
     }
@@ -58,7 +62,7 @@ export function UptimeSettings() {
       <div>
         <h2 className="text-2xl font-semibold">Настройки аптайма</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Интервал проверки, количество повторных попыток и срок хранения статистики
+          Интервал проверки, таймаут, количество повторных попыток и срок хранения статистики
         </p>
       </div>
 
@@ -72,6 +76,21 @@ export function UptimeSettings() {
           min={10}
           value={interval}
           onChange={(e) => setInterval(e.target.value)}
+          className="w-32"
+        />
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm max-w-md">
+        <label className="block text-sm font-medium mb-2">Таймаут проверки (секунды)</label>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Время ожидания ответа от сервера. Если сервер не отвечает за это время — проверка считается неудачной.
+        </p>
+        <Input
+          type="number"
+          min={1}
+          max={120}
+          value={timeout}
+          onChange={(e) => setTimeout_(e.target.value)}
           className="w-32"
         />
       </div>

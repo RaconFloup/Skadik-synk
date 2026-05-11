@@ -48,6 +48,17 @@ async def _run_single_check(monitor: UptimeMonitor, db: Session) -> dict:
     }
 
 
+def _get_timeout() -> float:
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_check_timeout").first()
+        return float(row.value) if row and row.value else 5.0
+    except:
+        return 5.0
+    finally:
+        db.close()
+
+
 def _run_all_checks():
     db: Session = SessionLocal()
     try:
@@ -57,8 +68,10 @@ def _run_all_checks():
         if not monitors:
             return
 
+        timeout = _get_timeout()
+
         async def _check_all():
-            tasks = [_tcp_check(m.host, m.port) for m in monitors]
+            tasks = [_tcp_check(m.host, m.port, timeout) for m in monitors]
             return await asyncio.gather(*tasks, return_exceptions=True)
 
         results = asyncio.run(_check_all())
@@ -176,7 +189,7 @@ def restart_scheduler():
     _schedule_cleanup()
     if not scheduler.running:
         scheduler.start()
-    return {"interval": interval, "retention_days": _get_retention_days()}
+    return {"interval": interval, "retention_days": _get_retention_days(), "timeout": _get_timeout()}
 
 
 def stop_scheduler():
