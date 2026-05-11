@@ -8,6 +8,7 @@ from typing import List
 
 from app.database import get_db, SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
+from app.models.activity import ActivityLog
 from app.schemas.uptime import (
     UptimeMonitorCreate,
     UptimeMonitorUpdate,
@@ -86,6 +87,17 @@ def update_monitor(monitor_id: UUID, data: UptimeMonitorUpdate, db: Session = De
         setattr(monitor, key, value)
     db.commit()
     db.refresh(monitor)
+
+    if "is_active" in update_data:
+        now_str = datetime.now(timezone.utc).strftime("%H:%M")
+        if monitor.is_active:
+            text = f"Мониторинг: {monitor.name} — включён"
+        else:
+            text = f"Мониторинг: {monitor.name} — отключён"
+        activity = ActivityLog(text=text, time=now_str)
+        db.add(activity)
+        db.commit()
+
     return monitor
 
 
