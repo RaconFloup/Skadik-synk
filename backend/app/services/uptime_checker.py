@@ -9,6 +9,7 @@ from app.database import SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
 from app.models.setting import AppSetting
 from app.models.activity import ActivityLog
+from app.services.telegram_notify import send_uptime_notification
 
 scheduler = BackgroundScheduler()
 
@@ -120,9 +121,11 @@ def _run_all_checks():
                 if old is not None and old != new_status:
                     if new_status:
                         text = f"Мониторинг аптайма: {monitor.name} — доступен"
+                        send_uptime_notification(monitor.name, is_up=True)
                     else:
                         err = recent[0].error if recent and recent[0].error else "Connection lost"
                         text = f"Мониторинг аптайма: {monitor.name} — недоступен: {err}"
+                        send_uptime_notification(monitor.name, is_up=False, error=err)
                     activity = ActivityLog(text=text, time=now_str)
                     db2.add(activity)
             db2.commit()
