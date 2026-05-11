@@ -168,7 +168,8 @@ def _generate_report(template: str) -> str:
             days_str = f"{days} дн." if days is not None else "\u2014"
             icon = _icon(bool(s.not_renewing), days)
             cost_str = _fmt_cost(cost_val, s.currency or "")
-            prefix = "\u2514" if i == len(grp_servers) else "\u251c"
+            p1 = "\u2514" if i == len(grp_servers) else "\u251c"
+            p2 = " " * len(p1)
             country = _country_ru(s.country or "")
             hosting_name = s.hosting or ""
             hosting_url = hosting_urls.get(hosting_name, "")
@@ -176,8 +177,10 @@ def _generate_report(template: str) -> str:
                 hosting_display = f'<a href="{hosting_url}">{hosting_name}</a>'
             else:
                 hosting_display = hosting_name
-            server_entry = f"{prefix} {label} [{country}] {hosting_display} \u2014 {cost_str} \u2014 {days_str} {icon}"
-            all_lines.append(server_entry)
+            line1 = f"{p1} {label} [{country}] {hosting_display}"
+            line2 = f"{p2} {cost_str} \u2014 {days_str} {icon}"
+            all_lines.append(line1)
+            all_lines.append(line2)
             if days is not None and days <= 1:
                 has_urgent = True
 

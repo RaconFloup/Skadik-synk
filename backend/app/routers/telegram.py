@@ -224,7 +224,7 @@ async def test_notify_billing(data: TestBillingNotifyRequest, db: Session = Depe
     report = _generate_report(data.template)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": report, "parse_mode": "HTML"}
+    payload = {"chat_id": chat_id, "text": report, "parse_mode": "HTML", "disable_web_page_preview": True}
     if topic_id:
         payload["message_thread_id"] = topic_id
 

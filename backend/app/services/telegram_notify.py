@@ -30,6 +30,7 @@ def _try_send(token: str, chat_id: str, text: str, topic_id: str | None, proxy: 
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML",
+        "disable_web_page_preview": True,
     }
     if topic_id:
         payload["message_thread_id"] = topic_id
