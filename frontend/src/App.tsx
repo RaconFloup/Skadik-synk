@@ -24,7 +24,7 @@ import { LoginPage } from '@/components/LoginPage'
 import { FAQPage } from '@/components/FAQPage'
 import { UptimePage } from '@/components/UptimePage'
 import { UptimeSettings } from '@/components/UptimeSettings'
-import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check, Wifi } from 'lucide-react'
+import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check, Wifi, Menu } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 import { exchangeRatesApi } from '@/api/client'
 import { dispatchRatesUpdated } from '@/lib/utils'
@@ -44,6 +44,7 @@ export default function App() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncingAll, setSyncingAll] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [purposeOrder, setPurposeOrder] = useState<string[]>(DEFAULT_ORDER)
   const [purposes, setPurposes] = useState<PurposeItem[]>(DEFAULT_PURPOSES)
@@ -344,16 +345,24 @@ export default function App() {
 
       <Sidebar
         activeView={activeView}
-        onViewChange={(v) => navigate('/' + v)}
+        onViewChange={(v) => { navigate('/' + v); setMobileSidebarOpen(false) }}
         serverCount={servers.length}
         appLogo={appLogo}
         appName={appName}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/50 bg-background/80 px-6 backdrop-blur">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold">
+      <div className="flex flex-1 flex-col min-w-0">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/50 bg-background/80 px-4 md:px-6 backdrop-blur">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex md:hidden h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="text-base md:text-lg font-semibold truncate">
               {activeView === 'dashboard' && 'Дашборд'}
               {activeView === 'servers' && 'Серверы'}
               {activeView === 'billing' && 'Биллинг'}
@@ -362,7 +371,7 @@ export default function App() {
               {activeView === 'settings' && 'Настройки'}
               {activeView === 'faq' && 'FAQ'}
             </h1>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
               <Zap className="h-3 w-3 text-primary" />
               <span>{activeCount} активных</span>
             </div>
@@ -402,7 +411,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
           {activeView === 'dashboard' && (
             <div key="dashboard" className="animate-view-enter">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

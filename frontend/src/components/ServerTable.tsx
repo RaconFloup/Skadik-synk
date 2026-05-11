@@ -73,8 +73,8 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
   }
 
   return (
-    <div className="rounded-lg border border-border/50 bg-card">
-      <table className="w-full">
+    <div className="rounded-lg border border-border/50 bg-card overflow-x-auto">
+      <table className="w-full min-w-[600px]">
         <thead>
           <tr className="border-b border-border/50">
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -320,7 +320,7 @@ export function clearFavicon() {
 
 export function loadAndApplyTheme() {
   const defaultTheme = getThemeById('green')
-  applyTheme(defaultTheme, false)
+  applyTheme(defaultTheme, true)
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {

@@ -283,7 +283,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
       </div>
 
       {view === 'calendar' && (
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 min-w-0">
             <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
               <div className="flex items-center justify-between bg-accent/20 px-4 py-3">
@@ -390,7 +390,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
             </div>
           </div>
 
-          <div className="w-80 shrink-0">
+          <div className="w-full md:w-80 shrink-0">
             <div className="rounded-xl border border-border/50 bg-card shadow-sm h-full">
               <div className="border-b border-border/50 px-4 py-3">
                 <h3 className="text-sm font-semibold">Ближайшие оплаты</h3>

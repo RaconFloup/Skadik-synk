@@ -236,7 +236,7 @@ export function UptimePage() {
                     </span>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                   {group.items.map(({ monitor, last_check, recent_checks, uptime_24h, uptime_7d }) => {
                     const status = getStatus({ monitor, last_check, recent_checks, uptime_24h, uptime_7d }, retryCount)
                     const statusColor = status === 'up' ? 'bg-emerald-500' : status === 'down' ? 'bg-red-500' : status === 'pending' ? 'bg-amber-500' : 'bg-muted-foreground'
