@@ -8,6 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
 from app.models.setting import AppSetting
+from app.models.activity import ActivityLog
 
 scheduler = BackgroundScheduler()
 
@@ -78,6 +79,21 @@ def _run_all_checks():
 
         db2: Session = SessionLocal()
         try:
+            retry_count = _get_retry_count()
+            prev_status: dict[str, bool | None] = {}
+            for monitor in monitors:
+                last_check = db2.query(UptimeCheck).filter(
+                    UptimeCheck.monitor_id == monitor.id
+                ).order_by(UptimeCheck.checked_at.desc()).first()
+                if last_check:
+                    recent = db2.query(UptimeCheck).filter(
+                        UptimeCheck.monitor_id == monitor.id
+                    ).order_by(UptimeCheck.checked_at.desc()).limit(retry_count).all()
+                    fails = sum(1 for c in recent if not c.is_up)
+                    prev_status[str(monitor.id)] = fails < retry_count
+                else:
+                    prev_status[str(monitor.id)] = None
+
             for monitor, result in zip(monitors, results):
                 if isinstance(result, BaseException):
                     print(f"Uptime check error for {monitor.name}: {result}")
@@ -90,6 +106,25 @@ def _run_all_checks():
                     error=error,
                 )
                 db2.add(check)
+            db2.commit()
+
+            now_str = datetime.now(timezone.utc).strftime("%H:%M")
+            for monitor in monitors:
+                recent = db2.query(UptimeCheck).filter(
+                    UptimeCheck.monitor_id == monitor.id
+                ).order_by(UptimeCheck.checked_at.desc()).limit(retry_count).all()
+                fails = sum(1 for c in recent if not c.is_up)
+                new_status = fails < retry_count
+
+                old = prev_status.get(str(monitor.id))
+                if old is not None and old != new_status:
+                    if new_status:
+                        text = f"Мониторинг: {monitor.name} — доступен"
+                    else:
+                        err = recent[0].error if recent and recent[0].error else "Connection lost"
+                        text = f"Мониторинг: {monitor.name} — недоступен: {err}"
+                    activity = ActivityLog(text=text, time=now_str)
+                    db2.add(activity)
             db2.commit()
         except Exception as e:
             print(f"Uptime DB error: {e}")
@@ -115,6 +150,17 @@ def _get_interval() -> int:
         return int(row.value) if row and row.value else 60
     except:
         return 60
+    finally:
+        db.close()
+
+
+def _get_retry_count() -> int:
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_retry_count").first()
+        return int(row.value) if row and row.value else 3
+    except:
+        return 3
     finally:
         db.close()
 
