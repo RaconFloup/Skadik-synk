@@ -4,7 +4,6 @@ import { settingsApi, telegramApi } from '@/api/client'
 const DEFAULT_UP_TEMPLATE = '✅ <b>{name}</b>\nМониторинг аптайма: сервер доступен'
 const DEFAULT_DOWN_TEMPLATE = '❌ <b>{name}</b>\nМониторинг аптайма: недоступен\n{error}'
 const DEFAULT_BILLING_TEMPLATE = '📅 Статус аренды: {date}\n{groups}\n---\n💰 Итого: {total}'
-const DEFAULT_BILLING_SERVER_TEMPLATE = '{prefix} {label} [{country}] {hosting}\n{pad} {cost} — {days} {icon}'
 
 function ToggleSwitch({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string }) {
   return (
@@ -44,10 +43,8 @@ export function NotificationSettings() {
   const [billingEnabled, setBillingEnabled] = useState(false)
   const [billingTime, setBillingTime] = useState('09:00')
   const [billingTemplate, setBillingTemplate] = useState('')
-  const [billingServerTemplate, setBillingServerTemplate] = useState('')
   const [billingNickname, setBillingNickname] = useState('')
   const [billingTemplateOpen, setBillingTemplateOpen] = useState(false)
-  const [billingServerTemplateOpen, setBillingServerTemplateOpen] = useState(false)
   const [billingSaving, setBillingSaving] = useState(false)
   const [billingTesting, setBillingTesting] = useState(false)
 
@@ -67,7 +64,6 @@ export function NotificationSettings() {
       setBillingEnabled(data['billing_notify_enabled'] === '1')
       setBillingTime(data['billing_notify_time'] || '09:00')
       setBillingTemplate(data['billing_notify_template'] || DEFAULT_BILLING_TEMPLATE)
-      setBillingServerTemplate(data['billing_notify_server_template'] || DEFAULT_BILLING_SERVER_TEMPLATE)
       setBillingNickname(data['billing_notify_nickname'] || '')
     }).catch(() => showToast('Ошибка загрузки настроек', 'error'))
   }, [])
@@ -117,7 +113,6 @@ export function NotificationSettings() {
         'billing_notify_enabled': billingEnabled ? '1' : '0',
         'billing_notify_time': billingTime,
         'billing_notify_template': billingTemplate,
-        'billing_notify_server_template': billingServerTemplate,
         'billing_notify_nickname': billingNickname,
       })
       showToast('Настройки биллинга сохранены', 'success')
@@ -266,24 +261,6 @@ export function NotificationSettings() {
                   placeholder="Оставьте пустым для стандартного шаблона" />
                 <p className="text-xs text-muted-foreground/60">
                   {'{date}'} — текущая дата, {'{groups}'} — список серверов по группам, {'{total}'} — итоговая сумма
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-border/50">
-            <button type="button" onClick={() => setBillingServerTemplateOpen(!billingServerTemplateOpen)}
-              className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/30">
-              <span>Шаблон строки сервера</span>
-              <span className={'transition-transform ' + (billingServerTemplateOpen ? 'rotate-180' : '')}>{'\u25BC'}</span>
-            </button>
-            {billingServerTemplateOpen && (
-              <div className="space-y-3 border-t border-border/50 p-4">
-                <textarea value={billingServerTemplate} onChange={(e) => setBillingServerTemplate(e.target.value)} rows={4}
-                  className="w-full rounded-md border border-border/50 bg-background px-3 py-2 text-sm outline-none focus:border-primary/50 font-mono"
-                  placeholder={'Оставьте пустым для стандартного шаблона'} />
-                <p className="text-xs text-muted-foreground/60">
-                  {'{prefix}'} — символ дерева (├/└), {'{pad}'} — отступ, {'{label}'} — назначение, {'{country}'} — страна, {'{hosting}'} — хостинг, {'{cost}'} — цена, {'{days}'} — дней, {'{icon}'} — иконка
                 </p>
               </div>
             )}

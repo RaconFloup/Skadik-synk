@@ -131,19 +131,6 @@ DEFAULT_REPORT_TEMPLATE = (
     "\U0001f4b0 Итого: {total}"
 )
 
-DEFAULT_SERVER_TEMPLATE = (
-    "{prefix} {label} [{country}] {hosting}\n"
-    "{pad} {cost} \u2014 {days} {icon}"
-)
-
-
-def _get_server_template() -> str:
-    import json
-    val = _get_settings(["billing_notify_server_template"]).get("billing_notify_server_template", "")
-    if not val:
-        return DEFAULT_SERVER_TEMPLATE
-    return val
-
 
 def _generate_report(template: str) -> str:
     db = SessionLocal()
@@ -151,7 +138,6 @@ def _generate_report(template: str) -> str:
         servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
         purpose_labels = _load_purpose_labels()
         hosting_urls = _load_hosting_urls()
-        server_tpl = _get_server_template()
     finally:
         db.close()
 
@@ -191,8 +177,10 @@ def _generate_report(template: str) -> str:
                 hosting_display = f'<a href="{hosting_url}">{hosting_name}</a>'
             else:
                 hosting_display = hosting_name
-            entry = server_tpl.replace("{prefix}", prefix_char).replace("{pad}", pad).replace("{label}", label).replace("{country}", country).replace("{hosting}", hosting_display).replace("{cost}", cost_str).replace("{days}", days_str).replace("{icon}", icon)
-            all_lines.append(entry)
+            line1 = f"{prefix_char} {label} [{country}] {hosting_display}"
+            line2 = f"{pad} {cost_str} \u2014 {days_str} {icon}"
+            all_lines.append(line1)
+            all_lines.append(line2)
             if days is not None and days <= 1:
                 has_urgent = True
 
