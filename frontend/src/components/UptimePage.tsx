@@ -141,6 +141,7 @@ export function UptimePage() {
   const [retryCount, setRetryCount] = useState(3)
   const [checkInterval, setCheckInterval] = useState(60)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [incidentDay, setIncidentDay] = useState<string | null>(null)
 
   useEffect(() => {
     serversApi.getAll().then(setServers).catch(() => {})
@@ -412,73 +413,280 @@ export function UptimePage() {
                           </div>
                         </div>
 
-                        {expandedId === monitor.id && (
-                          <div className="border-t border-border/40 px-4 py-3">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Статистика по дням</div>
-                            <div className="space-y-2">
-                              {(() => {
-                                const daysMap = new Map<string, { up: number; down: number; total: number; checks: { is_up: boolean; checked_at: string; response_time_ms?: number | null; id: string }[] }>()
-                                for (const c of recent_checks) {
-                                  const day = new Date(c.checked_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
-                                  let entry = daysMap.get(day)
-                                  if (!entry) {
-                                    entry = { up: 0, down: 0, total: 0, checks: [] }
-                                    daysMap.set(day, entry)
-                                  }
-                                  entry.total++
-                                  if (c.is_up) entry.up++
-                                  else entry.down++
-                                  entry.checks.push(c)
-                                  daysMap.set(day, entry)
-                                }
-                                const days = Array.from(daysMap.entries()).reverse()
-                                return days.map(([day, stats]) => {
-                                  const checks = stats.checks.sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
-                                  const firstMs = new Date(checks[0].checked_at).getTime()
-                                  const lastMs = new Date(checks[checks.length - 1].checked_at).getTime()
-                                  const totalSpanMs = lastMs - firstMs
-                                  const segCount = 24
-                                  const segMs = totalSpanMs / segCount
-                                  const segments: string[] = []
-                                  for (let si = 0; si < segCount; si++) {
-                                    const segStart = firstMs + segMs * si
-                                    const segEnd = segStart + segMs
-                                    const inSeg = checks.filter((c) => {
-                                      const ct = new Date(c.checked_at).getTime()
-                                      return ct >= segStart && ct < segEnd
-                                    })
-                                    if (inSeg.length === 0) {
-                                      segments.push('bg-muted-foreground/15')
-                                    } else {
-const segUpCount = inSeg.filter((c) => c.is_up).length
-const pct = segUpCount / inSeg.length
-                                      if (pct === 1) segments.push('bg-emerald-500/60')
-                                      else if (pct >= 0.5) segments.push('bg-amber-500/40')
-                                      else segments.push('bg-red-500/60')
+                        {expandedId === monitor.id && (() => {
+                          const daysMap = new Map<string, { dateKey: string; up: number; down: number; total: number; avgPing: number; pingCount: number; checks: { is_up: boolean; checked_at: string; response_time_ms?: number | null; error?: string | null; id: string }[] }>()
+                          for (const c of recent_checks) {
+                            const day = new Date(c.checked_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
+                            const dateKey = new Date(c.checked_at).toISOString().split('T')[0]
+                            let entry = daysMap.get(day)
+                            if (!entry) {
+                              entry = { dateKey, up: 0, down: 0, total: 0, avgPing: 0, pingCount: 0, checks: [] }
+                              daysMap.set(day, entry)
+                            }
+                            entry.total++
+                            if (c.is_up) entry.up++
+                            else entry.down++
+                            if (c.response_time_ms != null) {
+                              entry.avgPing += c.response_time_ms
+                              entry.pingCount++
+                            }
+                            entry.checks.push(c)
+                          }
+                          for (const entry of daysMap.values()) {
+                            if (entry.pingCount > 0) entry.avgPing = Math.round(entry.avgPing / entry.pingCount)
+                            else entry.avgPing = 0
+                          }
+
+                          const days = Array.from(daysMap.entries()).reverse()
+
+                          return (
+                            <div className="border-t border-border/40 px-4 py-3 space-y-4">
+                              <div>
+                                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Статистика по дням</div>
+                                <div className="space-y-2">
+                                  {days.map(([day, stats]) => {
+                                    const checks = stats.checks.sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
+                                    const firstMs = new Date(checks[0].checked_at).getTime()
+                                    const lastMs = new Date(checks[checks.length - 1].checked_at).getTime()
+                                    const totalSpanMs = lastMs - firstMs
+                                    const segCount = 24
+                                    const segMs = totalSpanMs / segCount
+
+                                    const dayStart = new Date(firstMs)
+                                    dayStart.setHours(0, 0, 0, 0)
+
+                                    const hourLabels: { label: string; position: number }[] = []
+                                    for (let h = 0; h < 24; h += 6) {
+                                      const labelMs = dayStart.getTime() + h * 3600000
+                                      if (labelMs >= firstMs && labelMs <= lastMs) {
+                                        hourLabels.push({ label: `${h.toString().padStart(2, '0')}`, position: ((labelMs - firstMs) / totalSpanMs) * 100 })
+                                      }
                                     }
+
+                                    const segments: { cls: string; title: string }[] = []
+                                    for (let si = 0; si < segCount; si++) {
+                                      const segStart = firstMs + segMs * si
+                                      const segEnd = segStart + segMs
+                                      const inSeg = checks.filter((c) => {
+                                        const ct = new Date(c.checked_at).getTime()
+                                        return ct >= segStart && ct < segEnd
+                                      })
+                                      if (inSeg.length === 0) {
+                                        segments.push({ cls: 'bg-muted-foreground/15', title: 'Нет данных' })
+                                      } else {
+                                        const segUpCount = inSeg.filter((c) => c.is_up).length
+                                        const pct = segUpCount / inSeg.length
+                                        const lastErr = inSeg.filter(c => !c.is_up && c.error).map(c => c.error).pop()
+
+                                        let cls: string
+                                        if (pct === 1) {
+                                          const avg = inSeg.filter(c => c.response_time_ms != null)
+                                          const segAvg = avg.length > 0 ? Math.round(avg.reduce((s, c) => s + c.response_time_ms!, 0) / avg.length) : 0
+                                          if (segAvg < 50) cls = 'bg-emerald-500/80'
+                                          else if (segAvg < 100) cls = 'bg-emerald-500/60'
+                                          else if (segAvg < 200) cls = 'bg-emerald-500/45'
+                                          else cls = 'bg-emerald-500/30'
+                                        } else if (pct >= 0.5) {
+                                          cls = 'bg-amber-500/40'
+                                        } else {
+                                          cls = 'bg-red-500/60'
+                                        }
+
+                                        segments.push({
+                                          cls,
+                                          title: `✓ ${segUpCount}/${inSeg.length}\n${lastErr ? `✗ ${lastErr}` : ''}\n${new Date(segStart).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`,
+                                        })
+                                      }
+                                    }
+
+                                    const isSelected = incidentDay === stats.dateKey
+
+                                    return (
+                                      <div
+                                        key={day}
+                                        className={`cursor-pointer rounded px-1 -mx-1 transition-colors hover:bg-accent/20 ${isSelected ? 'bg-accent/30' : ''}`}
+                                        onClick={() => setIncidentDay(incidentDay === stats.dateKey ? null : stats.dateKey)}
+                                      >
+                                        <div className="flex items-center gap-2 text-[11px]">
+                                          <span className="w-16 shrink-0 text-muted-foreground/60">{day}</span>
+                                          <div className="flex flex-col flex-1 min-w-0 gap-0">
+                                            <div className="flex gap-px h-3 items-stretch rounded-sm overflow-hidden">
+                                              {segments.map((seg, si) => (
+                                                <div key={si} className={`flex-1 ${seg.cls}`} title={seg.title} />
+                                              ))}
+                                            </div>
+                                            {hourLabels.length > 0 && (
+                                              <div className="relative h-2 mt-0.5">
+                                                {hourLabels.map((hl, i) => (
+                                                  <span key={i} className="absolute text-[8px] leading-none text-muted-foreground/40" style={{ left: `${hl.position}%`, transform: 'translateX(-50%)' }}>
+                                                    {hl.label}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stats.up}</span>
+                                          {stats.down > 0 ? (
+                                            <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-red-400">{stats.down}</span>
+                                          ) : (
+                                            <span className="w-8 text-right shrink-0 text-muted-foreground/30">—</span>
+                                          )}
+                                          <span className="w-8 text-right shrink-0 text-muted-foreground/40">{stats.total}</span>
+                                          <span className="w-12 text-right shrink-0 tabular-nums text-muted-foreground/60">
+                                            {stats.pingCount > 0 ? `${stats.avgPing}ms` : '—'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Тепловая карта</div>
+                                {(() => {
+                                  const dayPct = new Map<string, { pct: number; total: number }>()
+                                  for (const c of recent_checks) {
+                                    const d = new Date(c.checked_at).toISOString().split('T')[0]
+                                    if (!dayPct.has(d)) dayPct.set(d, { pct: 0, total: 0 })
+                                    const e = dayPct.get(d)!
+                                    e.total++
+                                    if (c.is_up) e.pct++
                                   }
+                                  for (const e of dayPct.values()) {
+                                    if (e.total > 0) e.pct = e.pct / e.total
+                                  }
+                                  const dates = Array.from(dayPct.keys()).sort()
+                                  if (dates.length === 0) return <div className="text-[11px] text-muted-foreground/40">Нет данных</div>
+
+                                  const firstDate = new Date(dates[0])
+                                  firstDate.setDate(firstDate.getDate() - firstDate.getDay())
+                                  const lastDate = new Date()
+                                  const weeks: { dates: string[]; month: string }[] = []
+                                  let cursor = new Date(firstDate)
+                                  while (cursor <= lastDate) {
+                                    const week: string[] = []
+                                    for (let d = 0; d < 7; d++) {
+                                      week.push(cursor.toISOString().split('T')[0])
+                                      cursor.setDate(cursor.getDate() + 1)
+                                    }
+                                    const monthLabel = new Date(week[0]).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')
+                                    weeks.push({ dates: week, month: weeks.length === 0 || new Date(week[0]).getMonth() !== new Date(weeks[weeks.length - 1].dates[0]).getMonth() ? monthLabel : '' })
+                                  }
+
                                   return (
-                                    <div key={day} className="flex items-center gap-2 text-[11px]">
-                                      <span className="w-16 shrink-0 text-muted-foreground/60">{day}</span>
-                                      <div className="flex flex-1 gap-px h-3 items-stretch rounded-sm overflow-hidden">
-                                        {segments.map((cls, si) => (
-                                          <div key={si} className={`flex-1 ${cls}`} />
+                                    <div className="flex gap-1">
+                                      <div className="flex flex-col gap-px text-[8px] text-muted-foreground/40 leading-none pt-4">
+                                        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((d, i) => (
+                                          <span key={d} className="h-2.5 flex items-center">{i % 2 === 0 ? d : ''}</span>
                                         ))}
                                       </div>
-                                      <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stats.up}</span>
-                                      {stats.down > 0 ? (
-                                        <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-red-400">{stats.down}</span>
-                                      ) : (
-                                        <span className="w-8 text-right shrink-0 text-muted-foreground/30">—</span>
-                                      )}
-                                      <span className="w-8 text-right shrink-0 text-muted-foreground/40">{stats.total}</span>
+                                      <div className="flex-1 min-w-0 overflow-x-auto">
+                                        <div className="flex gap-px">
+                                          {weeks.map((wk, wi) => (
+                                            <div key={wi} className="flex flex-col gap-px">
+                                              {wk.dates.map((date) => {
+                                                const data = dayPct.get(date)
+                                                const pct = data ? data.pct : 0
+                                                const total = data ? data.total : 0
+                                                const color = total === 0 ? 'bg-muted-foreground/10'
+                                                  : pct === 1 ? 'bg-emerald-500/70'
+                                                  : pct >= 0.5 ? 'bg-amber-500/50'
+                                                  : 'bg-red-500/60'
+                                                return (
+                                                  <div
+                                                    key={date}
+                                                    className={`h-2.5 w-2.5 rounded-sm ${color}`}
+                                                    title={`${date}: ${total > 0 ? `${Math.round(pct * 100)}%` : 'нет данных'}${total > 0 ? ` (${total} проверок)` : ''}`}
+                                                  />
+                                                )
+                                              })}
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="flex gap-px mt-1">
+                                          {weeks.map((wk, wi) => (
+                                            <div key={wi} className="text-[8px] text-muted-foreground/40 leading-none" style={{ width: '10px' }}>
+                                              {wk.month && <span className="block truncate">{wk.month}</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
                                     </div>
                                   )
-                                })
+                                })()}
+                              </div>
+
+                              {incidentDay && (() => {
+                                const dayChecks = recent_checks.filter(c => new Date(c.checked_at).toISOString().split('T')[0] === incidentDay)
+                                  .sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
+                                if (dayChecks.length === 0) return null
+
+                                const incidents: { start: string; end: string | null; duration: string; errors: string[]; count: number }[] = []
+                                let current: typeof incidents[0] | null = null
+                                for (const c of dayChecks) {
+                                  if (!c.is_up) {
+                                    if (!current) {
+                                      current = { start: c.checked_at, end: null, duration: '', errors: c.error ? [c.error] : [], count: 1 }
+                                    } else {
+                                      current.count++
+                                      if (c.error && !current.errors.includes(c.error)) current.errors.push(c.error)
+                                    }
+                                  } else {
+                                    if (current) {
+                                      current.end = c.checked_at
+                                      const durMin = Math.round((new Date(current.end).getTime() - new Date(current.start).getTime()) / 60000)
+                                      current.duration = durMin > 0 ? `${durMin} мин` : '<1 мин'
+                                      incidents.push(current)
+                                      current = null
+                                    }
+                                  }
+                                }
+                                if (current) {
+                                  current.duration = 'продолжается'
+                                  incidents.push(current)
+                                }
+
+                                if (incidents.length === 0) return null
+
+                                const fmt = (iso: string) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+
+                                return (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                                        Инциденты за {incidentDay}
+                                      </span>
+                                      <button onClick={() => setIncidentDay(null)} className="text-muted-foreground/40 hover:text-foreground text-xs">✕</button>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      {incidents.map((inc, i) => (
+                                        <div key={i} className="flex items-center gap-2 text-[11px] rounded bg-red-500/5 px-2 py-1.5">
+                                          <span className="text-red-400/80 whitespace-nowrap">
+                                            {fmt(inc.start)}{inc.end ? `–${fmt(inc.end)}` : '–...'}
+                                          </span>
+                                          <span className="text-muted-foreground whitespace-nowrap">· {inc.duration}</span>
+                                          {inc.errors.length > 0 && (
+                                            <>
+                                              <span className="text-muted-foreground">·</span>
+                                              <span className="text-muted-foreground/70 truncate min-w-0" title={inc.errors.join(', ')}>
+                                                {inc.errors[0]}
+                                              </span>
+                                            </>
+                                          )}
+                                          <span className="text-muted-foreground/40 ml-auto whitespace-nowrap">{inc.count} сбоев</span>
+                                        </div>
+                                      ))}
+                                      {incidents.length === 0 && (
+                                        <div className="text-[11px] text-muted-foreground/40 py-2 text-center">Сбоев не было</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
                               })()}
                             </div>
-                          </div>
-                        )}
+                          )
+                        })()}
                       </div>
                     )
                   })}
