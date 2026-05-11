@@ -91,9 +91,9 @@ def update_monitor(monitor_id: UUID, data: UptimeMonitorUpdate, db: Session = De
     if "is_active" in update_data:
         now_str = datetime.now(timezone.utc).strftime("%H:%M")
         if monitor.is_active:
-            text = f"Мониторинг: {monitor.name} — включён"
+            text = f"Мониторинг аптайма: {monitor.name} — включён"
         else:
-            text = f"Мониторинг: {monitor.name} — отключён"
+            text = f"Мониторинг аптайма: {monitor.name} — отключён"
         activity = ActivityLog(text=text, time=now_str)
         db.add(activity)
         db.commit()

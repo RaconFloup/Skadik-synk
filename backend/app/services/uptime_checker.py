@@ -119,10 +119,10 @@ def _run_all_checks():
                 old = prev_status.get(str(monitor.id))
                 if old is not None and old != new_status:
                     if new_status:
-                        text = f"Мониторинг: {monitor.name} — доступен"
+                        text = f"Мониторинг аптайма: {monitor.name} — доступен"
                     else:
                         err = recent[0].error if recent and recent[0].error else "Connection lost"
-                        text = f"Мониторинг: {monitor.name} — недоступен: {err}"
+                        text = f"Мониторинг аптайма: {monitor.name} — недоступен: {err}"
                     activity = ActivityLog(text=text, time=now_str)
                     db2.add(activity)
             db2.commit()
