@@ -140,3 +140,57 @@ async def test_google(db: Session = Depends(get_db)):
             return {"ok": False, "error": result.get("error", "Unknown error")}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+class TestNotifyRequest(BaseModel):
+    chat_id: str = ""
+    topic_id: str = ""
+    down_text: str = ""
+    up_text: str = ""
+
+
+@router.post("/test-notify")
+async def test_notify(data: TestNotifyRequest, db: Session = Depends(get_db)):
+    rows = db.query(AppSetting).filter(
+        AppSetting.key.in_(["telegram_bot_token", "socks5_proxy"])
+    ).all()
+    s = {row.key: row.value for row in rows}
+    token = s.get("telegram_bot_token", "")
+    proxy = s.get("socks5_proxy", "") or None
+
+    if not token:
+        return {"ok": False, "error": "Токен бота не настроен"}
+    if not data.chat_id and not data.down_text and not data.up_text:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_notify_chat_id").first()
+        if not row or not row.value:
+            return {"ok": False, "error": "Chat ID не указан"}
+    chat_id = data.chat_id or ""
+    if not chat_id:
+        row = db.query(AppSetting).filter(AppSetting.key == "uptime_notify_chat_id").first()
+        chat_id = row.value if row else ""
+
+    text = data.down_text or data.up_text or "🔄 Тестовое уведомление\nМониторинг аптайма: проверка связи"
+    if data.down_text:
+        text = data.down_text.replace("{name}", "Test Server").replace("{error}", "тестовая ошибка")
+    elif data.up_text:
+        text = data.up_text.replace("{name}", "Test Server")
+    else:
+        text = "🔄 Тестовое уведомление\nМониторинг аптайма: проверка связи"
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if data.topic_id:
+        payload["message_thread_id"] = data.topic_id
+
+    try:
+        kwargs = {"timeout": 10.0}
+        if proxy:
+            kwargs["proxies"] = {"all://": proxy}
+        with httpx.Client(**kwargs) as client:
+            resp = client.post(url, json=payload)
+            result = resp.json()
+            if result.get("ok"):
+                return {"ok": True}
+            return {"ok": False, "error": result.get("description", "Unknown error")}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

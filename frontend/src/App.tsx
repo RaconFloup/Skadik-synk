@@ -505,12 +505,12 @@ export default function App() {
           {activeView === 'settings' && (
             <div key="settings" className="animate-view-enter">
             <div>
-              <div className="mb-6 flex gap-1 rounded-lg border border-border/50 bg-card p-1">
+              <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-border/50 bg-card p-1 [&::-webkit-scrollbar]:hidden">
                 {(['general', 'appearance', 'hostings', 'integrations', 'uptime', 'notifications'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => navigate('/settings/' + tab)}
-                    className={'flex-1 rounded-md px-3 py-2 text-sm transition-colors ' + (settingsTab === tab
+                    className={'shrink-0 rounded-md px-3 py-2 text-sm transition-colors ' + (settingsTab === tab
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground hover:text-foreground')}
                   >

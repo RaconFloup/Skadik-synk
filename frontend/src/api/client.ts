@@ -97,6 +97,10 @@ export const brandingApi = {
 export const telegramApi = {
   fetchAvatar: (botUsername: string) =>
     api.post<{ logo_url: string }>('/telegram/fetch-avatar', { bot_username: botUsername }).then(res => res.data),
+  testToken: (token: string) =>
+    api.post<{ ok: boolean; username?: string }>('/telegram/test-token', { token }).then(res => res.data),
+  testNotify: (data: { chat_id?: string; topic_id?: string; down_text?: string; up_text?: string }) =>
+    api.post<{ ok: boolean; error?: string }>('/telegram/test-notify', data).then(res => res.data),
 }
 
 export const uptimeApi = {
