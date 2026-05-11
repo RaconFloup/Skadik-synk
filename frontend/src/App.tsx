@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { serversApi, activityApi, settingsApi, brandingApi, uptimeApi, getAuthToken, setAuthToken, setAuthFailureCallback } from '@/api/client'
 import type { Server, ServerCreate, ActivityLog, PurposeItem, UptimeMonitorWithStatus } from '@/types'
@@ -24,10 +24,8 @@ import { LoginPage } from '@/components/LoginPage'
 import { FAQPage } from '@/components/FAQPage'
 import { UptimePage } from '@/components/UptimePage'
 import { UptimeSettings } from '@/components/UptimeSettings'
-import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, DollarSign, Check, Wifi, Menu } from 'lucide-react'
+import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, Wifi, Menu } from 'lucide-react'
 import { countryName } from '@/lib/flags'
-import { exchangeRatesApi } from '@/api/client'
-import { dispatchRatesUpdated } from '@/lib/utils'
 import { updateFavicon } from '@/config/themes'
 
 type View = 'dashboard' | 'servers' | 'billing' | 'uptime' | 'activity' | 'settings' | 'faq'
@@ -70,46 +68,7 @@ export default function App() {
   const [appLogo, setAppLogo] = useState<string | undefined>(() => localStorage.getItem('skadik-brand-logo') || undefined)
   const [appName, setAppName] = useState<string | undefined>(() => localStorage.getItem('skadik-brand-name') || undefined)
 
-  const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
-  const [baseCurrency, setBaseCurrency] = useState('RUB')
-  const [ratesTimestamp, setRatesTimestamp] = useState<number | null>(null)
-  const [ratesLoading, setRatesLoading] = useState(false)
-  const [ratesJustUpdated, setRatesJustUpdated] = useState(false)
   const [uptimeData, setUptimeData] = useState<UptimeMonitorWithStatus[]>([])
-
-  const loadRates = useCallback(async () => {
-    try {
-      const [settings, data] = await Promise.all([
-        settingsApi.getAll().catch(() => ({ base_currency: 'RUB' })),
-        exchangeRatesApi.get().catch(() => null),
-      ])
-      if (settings.base_currency) setBaseCurrency(settings.base_currency)
-      if (data?.rates) {
-        setRates(data.rates)
-        setRatesTimestamp(data.updated_at ? new Date(data.updated_at).getTime() : null)
-      }
-    } catch {}
-  }, [])
-
-  const fetchRates = useCallback(async () => {
-    setRatesLoading(true)
-    try {
-      const data = await exchangeRatesApi.refresh()
-      if (data?.rates) {
-        setRates(data.rates)
-        setRatesTimestamp(data.updated_at ? new Date(data.updated_at).getTime() : null)
-        dispatchRatesUpdated()
-        setRatesJustUpdated(true)
-        setTimeout(() => setRatesJustUpdated(false), 2000)
-      }
-    } catch {} finally {
-      setRatesLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadRates()
-  }, [loadRates])
 
   useEffect(() => {
     brandingApi.get().then((data) => {
@@ -414,7 +373,7 @@ export default function App() {
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           {activeView === 'dashboard' && (
             <div key="dashboard" className="animate-view-enter">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="rounded-lg border border-border/50 bg-card p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <ServerIcon className="h-4 w-4" />
@@ -444,41 +403,6 @@ export default function App() {
                 <p className="mt-2 text-3xl font-bold">
                   {uptimeData.filter((m) => m.last_check?.is_up).length}/{uptimeData.length}
                 </p>
-              </div>
-              <div className="rounded-lg border border-border/50 bg-card p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <DollarSign className="h-4 w-4" />
-                    <span>Курс к {baseCurrency}</span>
-                  </div>
-                  <button
-                    onClick={fetchRates}
-                    disabled={ratesLoading}
-                    className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                  >
-                    {ratesJustUpdated ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : (
-                      <RefreshCw className={'h-3.5 w-3.5' + (ratesLoading ? ' animate-spin' : '')} />
-                    )}
-                  </button>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {['USD', 'EUR', 'RUB'].filter((c) => c !== baseCurrency).slice(0, 3).map((c) => {
-                    const rate = rates[baseCurrency] / (rates[c] || 1)
-                    return (
-                      <div key={c} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">1 {c}</span>
-                        <span className="font-medium">{rate.toFixed(2)} {baseCurrency}</span>
-                      </div>
-                    )
-                  })}
-                  {ratesTimestamp && (
-                    <div className="pt-1 text-[10px] text-muted-foreground/50">
-                      Обновлено: {new Date(ratesTimestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
             </div>

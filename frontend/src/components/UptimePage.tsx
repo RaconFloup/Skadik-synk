@@ -83,6 +83,23 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
     prevMs = ctMs
   }
 
+  if (prevMs !== null) {
+    const expectedMs = (interval || 60) * 1000
+    const nowMs = Date.now()
+    const gapMs = nowMs - prevMs
+    if (gapMs > expectedMs * 3) {
+      const missed = Math.floor(gapMs / expectedMs)
+      for (let n = 0; n < missed; n++) {
+        const t = prevMs + expectedMs * (n + 1)
+        items.push({
+          id: `gap-end-${n}`,
+          color: 'bg-muted-foreground/20',
+          title: `Мониторинг отключён\n${new Date(t).toLocaleString('ru-RU')}`,
+        })
+      }
+    }
+  }
+
   const totalBars = maxBars
   const visible = items.slice(-totalBars)
   const placeholders = totalBars - visible.length
