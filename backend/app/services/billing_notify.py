@@ -3,6 +3,7 @@ from datetime import date
 from app.database import SessionLocal
 from app.models.setting import AppSetting
 from app.models.server import Server
+from app.models.hosting import Hosting
 from app.services.telegram_notify import _try_send, _save_to_queue
 
 COUNTRY_RU: dict[str, str] = {
@@ -44,6 +45,8 @@ COUNTRY_RU: dict[str, str] = {
     "za": "\U0001F1FF\U0001F1E6 ЮАР",
 }
 
+CURRENCY_SYMBOLS = {"RUB": "\u20bd", "USD": "$", "EUR": "\u20ac"}
+
 
 def _get_settings(keys: list[str]) -> dict:
     db = SessionLocal()
@@ -76,6 +79,17 @@ def _load_purpose_labels() -> dict[str, str]:
     return {}
 
 
+def _load_hosting_urls() -> dict[str, str]:
+    db = SessionLocal()
+    try:
+        hostings = db.query(Hosting).all()
+        return {h.name: (h.url or "") for h in hostings}
+    except:
+        return {}
+    finally:
+        db.close()
+
+
 def _days_remaining(next_payment: date | None) -> int | None:
     if not next_payment:
         return None
@@ -103,6 +117,13 @@ def _purpose_emoji(purpose: str) -> str:
     return mapping.get(purpose, "\U0001f4e1")
 
 
+def _fmt_cost(cost_val: float, currency: str) -> str:
+    if not cost_val:
+        return "\u2014"
+    sym = CURRENCY_SYMBOLS.get(currency, currency)
+    return f"{cost_val:.2f}{sym}"
+
+
 DEFAULT_REPORT_TEMPLATE = (
     "\U0001f4c5 Статус аренды: {date}\n"
     "{groups}\n"
@@ -116,6 +137,7 @@ def _generate_report(template: str) -> str:
     try:
         servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
         purpose_labels = _load_purpose_labels()
+        hosting_urls = _load_hosting_urls()
     finally:
         db.close()
 
@@ -131,6 +153,7 @@ def _generate_report(template: str) -> str:
 
     all_lines: list[str] = []
     total_cost = 0.0
+    has_urgent = False
     for purpose in order:
         if purpose not in groups:
             continue
@@ -142,24 +165,35 @@ def _generate_report(template: str) -> str:
             cost_val = float(s.cost) if s.cost else 0
             total_cost += cost_val
             days = _days_remaining(s.next_payment)
-            days_str = f"{days} дн." if days is not None else "—"
+            days_str = f"{days} дн." if days is not None else "\u2014"
             icon = _icon(bool(s.not_renewing), days)
-            currency = s.currency or ""
-            cost_str = f"{cost_val:.2f}{currency}" if cost_val else "—"
+            cost_str = _fmt_cost(cost_val, s.currency or "")
             prefix = "\u2514" if i == len(grp_servers) else "\u251c"
-            name = label
             country = _country_ru(s.country or "")
-            hosting = s.hosting or ""
-            server_entry = f"{prefix} {name} [{country}] {hosting} — {cost_str} — {days_str} {icon}"
+            hosting_name = s.hosting or ""
+            hosting_url = hosting_urls.get(hosting_name, "")
+            if hosting_url:
+                hosting_display = f'<a href="{hosting_url}">{hosting_name}</a>'
+            else:
+                hosting_display = hosting_name
+            server_entry = f"{prefix} {label} [{country}] {hosting_display} \u2014 {cost_str} \u2014 {days_str} {icon}"
             all_lines.append(server_entry)
+            if days is not None and days <= 1:
+                has_urgent = True
 
-    total_str = f"{total_cost:.2f}"
+    total_sym = "₽"
+    total_str = f"{total_cost:.2f}{total_sym}"
 
     if not template:
         template = DEFAULT_REPORT_TEMPLATE
 
     groups_text = "\n".join(all_lines)
     report = template.replace("{date}", today_str).replace("{groups}", groups_text).replace("{total}", total_str)
+
+    if has_urgent:
+        nickname = _get_settings(["billing_notify_nickname"]).get("billing_notify_nickname", "")
+        if nickname:
+            report += f"\n\n\U0001f464 Оплатить: @{nickname}"
 
     return report
 
@@ -169,6 +203,7 @@ def send_daily_billing_report():
         "telegram_bot_token", "socks5_proxy",
         "billing_notify_chat_id", "billing_notify_topic_id",
         "billing_notify_enabled", "billing_notify_template",
+        "billing_notify_nickname",
     ])
     token = settings.get("telegram_bot_token", "")
     chat_id = settings.get("billing_notify_chat_id", "")

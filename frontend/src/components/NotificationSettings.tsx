@@ -43,6 +43,7 @@ export function NotificationSettings() {
   const [billingEnabled, setBillingEnabled] = useState(false)
   const [billingTime, setBillingTime] = useState('09:00')
   const [billingTemplate, setBillingTemplate] = useState('')
+  const [billingNickname, setBillingNickname] = useState('')
   const [billingTemplateOpen, setBillingTemplateOpen] = useState(false)
   const [billingSaving, setBillingSaving] = useState(false)
   const [billingTesting, setBillingTesting] = useState(false)
@@ -63,6 +64,7 @@ export function NotificationSettings() {
       setBillingEnabled(data['billing_notify_enabled'] === '1')
       setBillingTime(data['billing_notify_time'] || '09:00')
       setBillingTemplate(data['billing_notify_template'] || DEFAULT_BILLING_TEMPLATE)
+      setBillingNickname(data['billing_notify_nickname'] || '')
     }).catch(() => showToast('Ошибка загрузки настроек', 'error'))
   }, [])
 
@@ -111,6 +113,7 @@ export function NotificationSettings() {
         'billing_notify_enabled': billingEnabled ? '1' : '0',
         'billing_notify_time': billingTime,
         'billing_notify_template': billingTemplate,
+        'billing_notify_nickname': billingNickname,
       })
       showToast('Настройки биллинга сохранены', 'success')
     } catch {
@@ -236,6 +239,13 @@ export function NotificationSettings() {
             <input type="time" value={billingTime} onChange={(e) => setBillingTime(e.target.value)}
               className={inputClass + ' w-32'} />
             <p className="mt-1 text-xs text-muted-foreground/60">Ежедневно в указанное время</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Ник для оплаты</label>
+            <input type="text" value={billingNickname} onChange={(e) => setBillingNickname(e.target.value)}
+              placeholder="example_nickname" className={inputClass + ' max-w-xs'} />
+            <p className="mt-1 text-xs text-muted-foreground/60">Добавляется в отчёт, если до оплаты остался 1 день</p>
           </div>
 
           <div className="rounded-lg border border-border/50">
