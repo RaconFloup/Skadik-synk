@@ -452,15 +452,23 @@ export function UptimePage() {
 
                                     const segMs = 3600000
 
+                                    const now = new Date()
+                                    const isToday = dayStart.toDateString() === now.toDateString()
+                                    const currentHour = now.getHours()
+
                                     const hourLabels = [
                                       { label: '00', position: 0 },
                                       { label: '06', position: 25 },
                                       { label: '12', position: 50 },
                                       { label: '18', position: 75 },
-                                    ]
+                                    ].filter(hl => !isToday || hl.label < `${currentHour}`.padStart(2, '0'))
 
                                     const segments: { cls: string; title: string }[] = []
                                     for (let si = 0; si < 24; si++) {
+                                      if (isToday && si >= currentHour) {
+                                        segments.push({ cls: 'bg-transparent', title: '' })
+                                        continue
+                                      }
                                       const segStart = dayStart.getTime() + segMs * si
                                       const segEnd = segStart + segMs
                                       const inSeg = checks.filter((c) => {
@@ -588,6 +596,7 @@ export function UptimePage() {
                                               const data = dayPct.get(date)
                                               const pct = data ? data.pct : 0
                                               const total = data ? data.total : 0
+                                              const dayNum = parseInt(date.split('-')[2])
                                               const color = total === 0 ? 'bg-muted-foreground/10'
                                                 : pct === 1 ? 'bg-emerald-500/70'
                                                 : pct >= 0.5 ? 'bg-amber-500/50'
@@ -595,9 +604,14 @@ export function UptimePage() {
                                               return (
                                                 <div
                                                   key={date}
-                                                  className={`h-2.5 w-2.5 rounded-sm ${color}`}
+                                                  className="h-2.5 w-2.5 rounded-sm relative overflow-hidden"
                                                   title={`${date}: ${total > 0 ? `${Math.round(pct * 100)}%` : 'нет данных'}${total > 0 ? ` (${total} проверок)` : ''}`}
-                                                />
+                                                >
+                                                  <div className={`absolute inset-0 ${color}`} />
+                                                  <span className="absolute inset-0 flex items-center justify-center text-[5px] font-bold leading-none text-white/80" style={{ textShadow: '0 0 2px rgba(0,0,0,0.4)' }}>
+                                                    {dayNum}
+                                                  </span>
+                                                </div>
                                               )
                                             })}
                                           </div>
