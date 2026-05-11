@@ -10,6 +10,7 @@ from app.models.uptime import UptimeMonitor, UptimeCheck
 from app.models.setting import AppSetting
 from app.models.activity import ActivityLog
 from app.services.telegram_notify import send_uptime_notification, process_notification_queue
+from app.services.billing_notify import send_daily_billing_report
 
 scheduler = BackgroundScheduler()
 
@@ -220,6 +221,7 @@ def start_scheduler():
     )
     _schedule_cleanup()
     _register_queue_job()
+    _register_billing_job()
     _cleanup_old_checks()
     if not scheduler.running:
         scheduler.start()
@@ -237,6 +239,33 @@ def _register_queue_job():
     )
 
 
+def _register_billing_job():
+    db = SessionLocal()
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "billing_notify_time").first()
+        time_str = row.value if row and row.value else "09:00"
+    except:
+        time_str = "09:00"
+    finally:
+        db.close()
+
+    try:
+        hour, minute = map(int, time_str.split(":"))
+    except:
+        hour, minute = 9, 0
+
+    if scheduler.get_job("billing_report"):
+        scheduler.remove_job("billing_report")
+    scheduler.add_job(
+        send_daily_billing_report,
+        "cron",
+        hour=hour,
+        minute=minute,
+        id="billing_report",
+        replace_existing=True,
+    )
+
+
 def restart_scheduler():
     if scheduler.get_job("uptime_checker"):
         scheduler.remove_job("uptime_checker")
@@ -250,6 +279,7 @@ def restart_scheduler():
     )
     _schedule_cleanup()
     _register_queue_job()
+    _register_billing_job()
     if not scheduler.running:
         scheduler.start()
     return {"interval": interval, "retention_days": _get_retention_days(), "timeout": _get_timeout()}

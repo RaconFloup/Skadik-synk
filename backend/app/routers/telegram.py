@@ -194,3 +194,49 @@ async def test_notify(data: TestNotifyRequest, db: Session = Depends(get_db)):
             return {"ok": False, "error": result.get("description", "Unknown error")}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+class TestBillingNotifyRequest(BaseModel):
+    chat_id: str = ""
+    topic_id: str = ""
+    template: str = ""
+
+
+@router.post("/test-notify-billing")
+async def test_notify_billing(data: TestBillingNotifyRequest, db: Session = Depends(get_db)):
+    rows = db.query(AppSetting).filter(
+        AppSetting.key.in_(["telegram_bot_token", "socks5_proxy", "billing_notify_chat_id", "billing_notify_topic_id"])
+    ).all()
+    s = {row.key: row.value for row in rows}
+    token = s.get("telegram_bot_token", "")
+    proxy = s.get("socks5_proxy", "") or None
+
+    if not token:
+        return {"ok": False, "error": "Токен бота не настроен"}
+
+    chat_id = data.chat_id or s.get("billing_notify_chat_id", "")
+    topic_id = data.topic_id or s.get("billing_notify_topic_id", "")
+
+    if not chat_id:
+        return {"ok": False, "error": "Chat ID не указан"}
+
+    from app.services.billing_notify import _generate_report
+    report = _generate_report(data.template)
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": report, "parse_mode": "HTML"}
+    if topic_id:
+        payload["message_thread_id"] = topic_id
+
+    try:
+        kwargs = {"timeout": 15.0}
+        if proxy:
+            kwargs["proxies"] = {"all://": proxy}
+        with httpx.Client(**kwargs) as client:
+            resp = client.post(url, json=payload)
+            result = resp.json()
+            if result.get("ok"):
+                return {"ok": True}
+            return {"ok": False, "error": result.get("description", "Unknown error")}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

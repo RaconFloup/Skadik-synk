@@ -101,6 +101,8 @@ export const telegramApi = {
     api.post<{ ok: boolean; username?: string }>('/telegram/test-token', { token }).then(res => res.data),
   testNotify: (data: { chat_id?: string; topic_id?: string; down_text?: string; up_text?: string }) =>
     api.post<{ ok: boolean; error?: string }>('/telegram/test-notify', data).then(res => res.data),
+  testNotifyBilling: (data: { chat_id?: string; topic_id?: string; template?: string }) =>
+    api.post<{ ok: boolean; error?: string }>('/telegram/test-notify-billing', data).then(res => res.data),
 }
 
 export const uptimeApi = {
