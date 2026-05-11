@@ -412,14 +412,23 @@ export default function App() {
           {activeView === 'servers' && (
             <div key="servers" className="animate-view-enter">
               {activities.length > 0 && (
-                <div className="mb-4 rounded-lg border border-border/50 bg-card/50 px-4 py-2">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Последние действия:</span>
-                    {activities.slice(0, 3).map((item) => (
-                      <span key={item.id} className="flex items-center gap-1.5">
-                        <span className="h-1 w-1 rounded-full bg-primary/60" />
-                        {item.text}
-                        <span className="opacity-50">{item.time}</span>
+                <div className="mb-4 rounded-lg border border-border/50 bg-card/50 px-3 py-1.5 md:px-4 md:py-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground shrink-0">Последние действия:</span>
+                    <span className="hidden md:contents">
+                      {activities.slice(0, 3).map((item) => (
+                        <span key={item.id} className="flex items-center gap-1.5">
+                          <span className="h-1 w-1 rounded-full bg-primary/60 shrink-0" />
+                          <span className="truncate max-w-[200px]">{item.text}</span>
+                          <span className="opacity-50 shrink-0">{item.time}</span>
+                        </span>
+                      ))}
+                    </span>
+                    {activities.slice(0, 1).map((item) => (
+                      <span key={item.id} className="flex md:hidden items-center gap-1.5 min-w-0">
+                        <span className="h-1 w-1 rounded-full bg-primary/60 shrink-0" />
+                        <span className="truncate">{item.text}</span>
+                        <span className="opacity-50 shrink-0">{item.time}</span>
                       </span>
                     ))}
                   </div>
