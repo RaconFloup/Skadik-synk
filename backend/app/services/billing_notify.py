@@ -131,6 +131,19 @@ DEFAULT_REPORT_TEMPLATE = (
     "\U0001f4b0 Итого: {total}"
 )
 
+DEFAULT_SERVER_TEMPLATE = (
+    "{prefix} {label} [{country}] {hosting}\n"
+    "{pad} {cost} \u2014 {days} {icon}"
+)
+
+
+def _get_server_template() -> str:
+    import json
+    val = _get_settings(["billing_notify_server_template"]).get("billing_notify_server_template", "")
+    if not val:
+        return DEFAULT_SERVER_TEMPLATE
+    return val
+
 
 def _generate_report(template: str) -> str:
     db = SessionLocal()
@@ -138,6 +151,7 @@ def _generate_report(template: str) -> str:
         servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
         purpose_labels = _load_purpose_labels()
         hosting_urls = _load_hosting_urls()
+        server_tpl = _get_server_template()
     finally:
         db.close()
 
@@ -168,8 +182,8 @@ def _generate_report(template: str) -> str:
             days_str = f"{days} дн." if days is not None else "\u2014"
             icon = _icon(bool(s.not_renewing), days)
             cost_str = _fmt_cost(cost_val, s.currency or "")
-            p1 = "\u2514" if i == len(grp_servers) else "\u251c"
-            p2 = " " * len(p1)
+            prefix_char = "\u2514" if i == len(grp_servers) else "\u251c"
+            pad = " " * len(prefix_char)
             country = _country_ru(s.country or "")
             hosting_name = s.hosting or ""
             hosting_url = hosting_urls.get(hosting_name, "")
@@ -177,10 +191,8 @@ def _generate_report(template: str) -> str:
                 hosting_display = f'<a href="{hosting_url}">{hosting_name}</a>'
             else:
                 hosting_display = hosting_name
-            line1 = f"{p1} {label} [{country}] {hosting_display}"
-            line2 = f"{p2} {cost_str} \u2014 {days_str} {icon}"
-            all_lines.append(line1)
-            all_lines.append(line2)
+            entry = server_tpl.replace("{prefix}", prefix_char).replace("{pad}", pad).replace("{label}", label).replace("{country}", country).replace("{hosting}", hosting_display).replace("{cost}", cost_str).replace("{days}", days_str).replace("{icon}", icon)
+            all_lines.append(entry)
             if days is not None and days <= 1:
                 has_urgent = True
 
