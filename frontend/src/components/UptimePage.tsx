@@ -446,26 +446,22 @@ export function UptimePage() {
                                 <div className="space-y-2">
                                   {days.map(([day, stats]) => {
                                     const checks = stats.checks.sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
-                                    const firstMs = new Date(checks[0].checked_at).getTime()
-                                    const lastMs = new Date(checks[checks.length - 1].checked_at).getTime()
-                                    const totalSpanMs = lastMs - firstMs
-                                    const segCount = 24
-                                    const segMs = totalSpanMs / segCount
 
-                                    const dayStart = new Date(firstMs)
+                                    const dayStart = new Date(checks[0].checked_at)
                                     dayStart.setHours(0, 0, 0, 0)
 
-                                    const hourLabels: { label: string; position: number }[] = []
-                                    for (let h = 0; h < 24; h += 6) {
-                                      const labelMs = dayStart.getTime() + h * 3600000
-                                      if (labelMs >= firstMs && labelMs <= lastMs) {
-                                        hourLabels.push({ label: `${h.toString().padStart(2, '0')}`, position: ((labelMs - firstMs) / totalSpanMs) * 100 })
-                                      }
-                                    }
+                                    const segMs = 3600000
+
+                                    const hourLabels = [
+                                      { label: '00', position: 0 },
+                                      { label: '06', position: 25 },
+                                      { label: '12', position: 50 },
+                                      { label: '18', position: 75 },
+                                    ]
 
                                     const segments: { cls: string; title: string }[] = []
-                                    for (let si = 0; si < segCount; si++) {
-                                      const segStart = firstMs + segMs * si
+                                    for (let si = 0; si < 24; si++) {
+                                      const segStart = dayStart.getTime() + segMs * si
                                       const segEnd = segStart + segMs
                                       const inSeg = checks.filter((c) => {
                                         const ct = new Date(c.checked_at).getTime()
