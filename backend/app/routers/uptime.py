@@ -44,9 +44,9 @@ def get_monitors(db: Session = Depends(get_db)):
             UptimeCheck.monitor_id == m.id
         ).order_by(UptimeCheck.checked_at.desc()).first()
         recent_checks = db.query(UptimeCheck).filter(
-            UptimeCheck.monitor_id == m.id
-        ).order_by(UptimeCheck.checked_at.desc()).all()
-        recent_checks.reverse()
+            UptimeCheck.monitor_id == m.id,
+            UptimeCheck.checked_at >= now - timedelta(hours=24)
+        ).order_by(UptimeCheck.checked_at.asc()).all()
         uptime_24h = _calc_uptime(db, m.id, now - timedelta(hours=24))
         uptime_7d = _calc_uptime(db, m.id, now - timedelta(days=7))
         result.append(UptimeMonitorWithStatus(
