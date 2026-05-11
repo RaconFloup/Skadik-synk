@@ -317,7 +317,7 @@ export function UptimePage() {
                                     return (
                                       <>
                                         <p className="font-semibold text-sm truncate leading-tight">
-                                          [{flagImg(sv.country) && <img src={flagImg(sv.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(sv.country)}]
+                                          {flagImg(sv.country) && <img src={flagImg(sv.country)!} alt="" className="inline-block h-3.5 w-5 rounded align-text-bottom mr-0.5" />}{countryName(sv.country)}
                                         </p>
                                         <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground/70">
                                           {hostingLogoMap[sv.hosting] ? (
