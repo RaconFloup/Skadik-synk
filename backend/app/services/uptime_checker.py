@@ -52,24 +52,47 @@ def _run_all_checks():
     db: Session = SessionLocal()
     try:
         monitors = db.query(UptimeMonitor).filter(UptimeMonitor.is_active == True).all()
-        for monitor in monitors:
-            try:
-                is_up, response_time_ms, error = asyncio.run(
-                    _tcp_check(monitor.host, monitor.port)
-                )
+        db.close()
+
+        if not monitors:
+            return
+
+        async def _check_all():
+            tasks = [_tcp_check(m.host, m.port) for m in monitors]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+
+        results = asyncio.run(_check_all())
+
+        db2: Session = SessionLocal()
+        try:
+            for monitor, result in zip(monitors, results):
+                if isinstance(result, BaseException):
+                    print(f"Uptime check error for {monitor.name}: {result}")
+                    continue
+                is_up, response_time_ms, error = result
                 check = UptimeCheck(
                     monitor_id=monitor.id,
                     is_up=is_up,
                     response_time_ms=response_time_ms,
                     error=error,
                 )
-                db.add(check)
-                db.commit()
-            except Exception as e:
-                print(f"Uptime check error for {monitor.name}: {e}")
-                db.rollback()
+                db2.add(check)
+            db2.commit()
+        except Exception as e:
+            print(f"Uptime DB error: {e}")
+            db2.rollback()
+        finally:
+            db2.close()
+    except Exception as e:
+        print(f"Uptime checker fatal error: {e}")
+        if db.is_active:
+            db.close()
     finally:
-        db.close()
+        try:
+            if db.is_active:
+                db.close()
+        except:
+            pass
 
 
 def _get_interval() -> int:
