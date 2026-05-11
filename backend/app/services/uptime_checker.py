@@ -9,7 +9,7 @@ from app.database import SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
 from app.models.setting import AppSetting
 from app.models.activity import ActivityLog
-from app.services.telegram_notify import send_uptime_notification
+from app.services.telegram_notify import send_uptime_notification, process_notification_queue
 
 scheduler = BackgroundScheduler()
 
@@ -219,9 +219,22 @@ def start_scheduler():
         replace_existing=True,
     )
     _schedule_cleanup()
+    _register_queue_job()
     _cleanup_old_checks()
     if not scheduler.running:
         scheduler.start()
+
+
+def _register_queue_job():
+    if scheduler.get_job("notify_queue"):
+        scheduler.remove_job("notify_queue")
+    scheduler.add_job(
+        process_notification_queue,
+        "interval",
+        seconds=30,
+        id="notify_queue",
+        replace_existing=True,
+    )
 
 
 def restart_scheduler():
@@ -236,6 +249,7 @@ def restart_scheduler():
         replace_existing=True,
     )
     _schedule_cleanup()
+    _register_queue_job()
     if not scheduler.running:
         scheduler.start()
     return {"interval": interval, "retention_days": _get_retention_days(), "timeout": _get_timeout()}
