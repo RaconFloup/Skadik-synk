@@ -30,6 +30,12 @@ postgres-data/
 *.swp
 *.swo
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Secrets (Критически важно!)
 *.pem
 *.key

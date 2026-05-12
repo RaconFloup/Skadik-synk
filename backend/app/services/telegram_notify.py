@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -5,6 +6,8 @@ import httpx
 from app.database import SessionLocal
 from app.models.notification_queue import NotificationQueue
 from app.services.settings_utils import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _get_notify_settings() -> dict:
@@ -100,7 +103,7 @@ def _save_to_queue(chat_id: str, topic_id: str | None, text: str, error: str):
         db.add(entry)
         db.commit()
     except Exception as e:
-        print(f"Failed to save notification to queue: {e}")
+        logger.exception("Failed to save notification to queue: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -139,7 +142,7 @@ def process_notification_queue():
                 entry.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=backoff)
         db.commit()
     except Exception as e:
-        print(f"Notification queue processing error: {e}")
+        logger.exception("Notification queue processing error: %s", e)
         db.rollback()
     finally:
         db.close()

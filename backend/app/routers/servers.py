@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -9,6 +11,8 @@ from app.models.uptime import UptimeMonitor
 from app.schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from app.services import termix, google_drive
 from app.services.currency_utils import recalc_server_costs, _load_exchange_rates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/servers", tags=["servers"])
 
@@ -29,7 +33,7 @@ async def sync_server_to_services(server: Server, db: Session):
             if termix_result.get("success"):
                 server.termix_host_id = termix_result.get("host_id")
         except Exception as e:
-            print(f"Termix sync error: {e}")
+            logger.error("Termix sync error: %s", e)
 
     if not server.google_doc_id:
         try:
@@ -53,9 +57,9 @@ async def sync_server_to_services(server: Server, db: Session):
             if gd_result.get("success"):
                 server.google_doc_id = gd_result.get("file_id")
             else:
-                print(f"Google Drive error: {gd_result.get('error')}")
+                logger.error("Google Drive error: %s", gd_result.get("error"))
         except Exception as e:
-            print(f"Google Drive exception: {e}")
+            logger.exception("Google Drive exception: %s", e)
 
 
 @router.get("", response_model=List[ServerResponse])

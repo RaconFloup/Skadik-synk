@@ -1,5 +1,8 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 from app.database import init_db
 from app.routers.servers import router as servers_router
 from app.routers.sync import router as sync_router
@@ -12,13 +15,20 @@ from app.routers.auth import router as auth_router
 from app.routers.uptime import router as uptime_router
 from app.routers.flags import router as flags_router
 from app.dependencies.auth import auth_middleware
-from app.services.uptime_checker import start_scheduler
+from app.services.uptime_checker import start_scheduler, stop_scheduler
+
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Skadik Synk API", version="1.0.0")
 
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,8 +50,15 @@ app.include_router(flags_router)
 
 @app.on_event("startup")
 def startup():
+    logger.info("Starting Skadik Synk API")
     init_db()
     start_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    logger.info("Shutting down Skadik Synk API")
+    stop_scheduler()
 
 
 @app.get("/api/health")

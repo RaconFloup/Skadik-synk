@@ -1,9 +1,13 @@
 import json
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models.setting import AppSetting
 from app.models.server import Server
+
+logger = logging.getLogger(__name__)
 
 
 def _load_currencies(db: Session) -> list[str]:
@@ -66,7 +70,7 @@ def recalc_all_server_costs(db: Session | None = None):
             recalc_server_costs(db, s, rates)
         db.commit()
     except Exception as e:
-        print(f"Error recalculating costs: {e}")
+        logger.exception("Error recalculating costs: %s", e)
         if db.is_active:
             db.rollback()
     finally:

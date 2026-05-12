@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -6,12 +7,15 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models.uptime import UptimeMonitor, UptimeCheck
 from app.models.setting import AppSetting
 from app.models.activity import ActivityLog
 from app.services.telegram_notify import send_uptime_notification, process_notification_queue
 from app.services.billing_notify import send_daily_billing_report
+
+logger = logging.getLogger(__name__)
 
 scheduler = BackgroundScheduler()
 
@@ -99,7 +103,7 @@ def _run_all_checks():
 
             for monitor, result in zip(monitors, results):
                 if isinstance(result, BaseException):
-                    print(f"Uptime check error for {monitor.name}: {result}")
+                    logger.error("Uptime check error for %s: %s", monitor.name, result)
                     continue
                 is_up, response_time_ms, error = result
                 check = UptimeCheck(
@@ -132,12 +136,12 @@ def _run_all_checks():
                     db2.add(activity)
             db2.commit()
         except Exception as e:
-            print(f"Uptime DB error: {e}")
+            logger.exception("Uptime DB error: %s", e)
             db2.rollback()
         finally:
             db2.close()
     except Exception as e:
-        print(f"Uptime checker fatal error: {e}")
+        logger.exception("Uptime checker fatal error: %s", e)
         if db.is_active:
             db.close()
     finally:
@@ -189,9 +193,9 @@ def _cleanup_old_checks():
         deleted = db.query(UptimeCheck).filter(UptimeCheck.checked_at < cutoff).delete()
         db.commit()
         if deleted:
-            print(f"Uptime cleanup: deleted {deleted} checks older than {days} days")
+            logger.info("Uptime cleanup: deleted %s checks older than %s days", deleted, days)
     except Exception as e:
-        print(f"Uptime cleanup error: {e}")
+        logger.exception("Uptime cleanup error: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -257,7 +261,7 @@ def _register_billing_job():
 
     if scheduler.get_job("billing_report"):
         scheduler.remove_job("billing_report")
-    tz = ZoneInfo("Europe/Moscow")
+    tz = ZoneInfo(settings.TIMEZONE)
     scheduler.add_job(
         send_daily_billing_report,
         "cron",

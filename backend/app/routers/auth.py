@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+import time
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -6,11 +10,17 @@ from datetime import datetime, timedelta, timezone
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
 
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 30
+
+LOGIN_ATTEMPTS: dict[str, list[float]] = defaultdict(list)
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 300
 
 
 class LoginRequest(BaseModel):
@@ -19,6 +29,19 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     token: str
+
+
+def _check_rate_limit(ip: str):
+    now = time.time()
+    attempts = LOGIN_ATTEMPTS[ip]
+    attempts[:] = [t for t in attempts if now - t < LOGIN_WINDOW_SECONDS]
+    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+        logger.warning("Rate limit exceeded for IP: %s", ip)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again later.",
+        )
+    attempts.append(now)
 
 
 def create_token() -> str:
@@ -37,9 +60,13 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest):
+def login(data: LoginRequest, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(ip)
     if data.password != settings.AUTH_PASSWORD:
+        logger.warning("Failed login attempt from IP: %s", ip)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Wrong password")
+    logger.info("Successful login from IP: %s", ip)
     return TokenResponse(token=create_token())
 
 
