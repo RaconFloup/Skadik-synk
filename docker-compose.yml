@@ -26,6 +26,8 @@ services:
       dockerfile: Dockerfile
     container_name: skadik-backend
     restart: unless-stopped
+    environment:
+      TZ: Europe/Moscow
     ports:
       - "8001:8000"
     env_file:

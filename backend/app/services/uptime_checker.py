@@ -1,6 +1,7 @@
 import asyncio
 import time
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -256,11 +257,13 @@ def _register_billing_job():
 
     if scheduler.get_job("billing_report"):
         scheduler.remove_job("billing_report")
+    tz = ZoneInfo("Europe/Moscow")
     scheduler.add_job(
         send_daily_billing_report,
         "cron",
         hour=hour,
         minute=minute,
+        timezone=tz,
         id="billing_report",
         replace_existing=True,
     )
