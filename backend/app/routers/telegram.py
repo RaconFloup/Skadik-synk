@@ -10,6 +10,27 @@ from app.models.setting import AppSetting
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 
 
+def _send_telegram_msg(token: str, chat_id: str, text: str, topic_id: str | None, proxy: str | None, disable_preview: bool = False) -> dict:
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if topic_id:
+        payload["message_thread_id"] = topic_id
+    if disable_preview:
+        payload["disable_web_page_preview"] = True
+    try:
+        kwargs = {"timeout": 10.0}
+        if proxy:
+            kwargs["proxies"] = {"all://": proxy}
+        with httpx.Client(**kwargs) as client:
+            resp = client.post(url, json=payload)
+            result = resp.json()
+            if result.get("ok"):
+                return {"ok": True}
+            return {"ok": False, "error": result.get("description", "Unknown error")}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 class FetchAvatarRequest(BaseModel):
     bot_username: str
 
@@ -160,16 +181,15 @@ async def test_notify(data: TestNotifyRequest, db: Session = Depends(get_db)):
 
     if not token:
         return {"ok": False, "error": "Токен бота не настроен"}
-    if not data.chat_id and not data.down_text and not data.up_text:
-        row = db.query(AppSetting).filter(AppSetting.key == "uptime_notify_chat_id").first()
-        if not row or not row.value:
-            return {"ok": False, "error": "Chat ID не указан"}
-    chat_id = data.chat_id or ""
+
+    chat_id = data.chat_id
     if not chat_id:
         row = db.query(AppSetting).filter(AppSetting.key == "uptime_notify_chat_id").first()
         chat_id = row.value if row else ""
+    if not chat_id:
+        return {"ok": False, "error": "Chat ID не указан"}
 
-    text = data.down_text or data.up_text or "🔄 Тестовое уведомление\nМониторинг аптайма: проверка связи"
+    text = data.down_text or data.up_text or ""
     if data.down_text:
         text = data.down_text.replace("{name}", "Test Server").replace("{error}", "тестовая ошибка")
     elif data.up_text:
@@ -177,23 +197,7 @@ async def test_notify(data: TestNotifyRequest, db: Session = Depends(get_db)):
     else:
         text = "🔄 Тестовое уведомление\nМониторинг аптайма: проверка связи"
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-    if data.topic_id:
-        payload["message_thread_id"] = data.topic_id
-
-    try:
-        kwargs = {"timeout": 10.0}
-        if proxy:
-            kwargs["proxies"] = {"all://": proxy}
-        with httpx.Client(**kwargs) as client:
-            resp = client.post(url, json=payload)
-            result = resp.json()
-            if result.get("ok"):
-                return {"ok": True}
-            return {"ok": False, "error": result.get("description", "Unknown error")}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    return _send_telegram_msg(token, chat_id, text, data.topic_id or None, proxy)
 
 
 class TestBillingNotifyRequest(BaseModel):
@@ -223,20 +227,4 @@ async def test_notify_billing(data: TestBillingNotifyRequest, db: Session = Depe
     from app.services.billing_notify import _generate_report
     report = _generate_report(data.template)
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": report, "parse_mode": "HTML", "disable_web_page_preview": True}
-    if topic_id:
-        payload["message_thread_id"] = topic_id
-
-    try:
-        kwargs = {"timeout": 15.0}
-        if proxy:
-            kwargs["proxies"] = {"all://": proxy}
-        with httpx.Client(**kwargs) as client:
-            resp = client.post(url, json=payload)
-            result = resp.json()
-            if result.get("ok"):
-                return {"ok": True}
-            return {"ok": False, "error": result.get("description", "Unknown error")}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    return _send_telegram_msg(token, chat_id, report, topic_id or None, proxy, disable_preview=True)

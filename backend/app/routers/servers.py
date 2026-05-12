@@ -128,13 +128,13 @@ async def delete_server(server_id: UUID, db: Session = Depends(get_db)):
     if server.termix_host_id:
         try:
             await termix.delete_host(server.termix_host_id, db)
-        except:
+        except Exception:
             pass
 
     if server.google_doc_id:
         try:
             await google_drive.delete_google_doc(server.google_doc_id, db)
-        except:
+        except Exception:
             pass
 
     db.delete(server)

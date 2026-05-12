@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting, UptimeMonitor, UptimeCheck, UptimeMonitorWithStatus } from '@/types'
+import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting, UptimeMonitor, UptimeCheck, UptimeMonitorWithStatus, TelegramTestTokenResponse, TelegramSendResponse, ExchangeRatesResponse, BrandingResponse, AuthLoginResponse } from '@/types'
 
 const TOKEN_KEY = 'skadik-auth-token'
 
@@ -50,7 +50,7 @@ export function logout() {
 }
 
 export const authApi = {
-  login: (password: string) => api.post<{ token: string }>('/auth/login', { password }).then(res => res.data),
+  login: (password: string) => api.post<AuthLoginResponse>('/auth/login', { password }).then(res => res.data),
   verify: () => api.post('/auth/verify').then(res => res.data),
 }
 
@@ -86,23 +86,23 @@ export const settingsApi = {
 }
 
 export const exchangeRatesApi = {
-  get: () => api.get<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates').then(res => res.data),
-  refresh: () => api.post<{ rates: Record<string, number>; updated_at: string | null }>('/exchange-rates/refresh').then(res => res.data),
+  get: () => api.get<ExchangeRatesResponse>('/exchange-rates').then(res => res.data),
+  refresh: () => api.post<ExchangeRatesResponse>('/exchange-rates/refresh').then(res => res.data),
 }
 
 export const brandingApi = {
-  get: () => api.get<Record<string, string>>('/settings/public').then(res => res.data),
+  get: () => api.get<BrandingResponse>('/settings/public').then(res => res.data),
 }
 
 export const telegramApi = {
   fetchAvatar: (botUsername: string) =>
     api.post<{ logo_url: string }>('/telegram/fetch-avatar', { bot_username: botUsername }).then(res => res.data),
   testToken: (token: string) =>
-    api.post<{ ok: boolean; username?: string }>('/telegram/test-token', { token }).then(res => res.data),
+    api.post<TelegramTestTokenResponse>('/telegram/test-token', { token }).then(res => res.data),
   testNotify: (data: { chat_id?: string; topic_id?: string; down_text?: string; up_text?: string }) =>
-    api.post<{ ok: boolean; error?: string }>('/telegram/test-notify', data).then(res => res.data),
+    api.post<TelegramSendResponse>('/telegram/test-notify', data).then(res => res.data),
   testNotifyBilling: (data: { chat_id?: string; topic_id?: string; template?: string }) =>
-    api.post<{ ok: boolean; error?: string }>('/telegram/test-notify-billing', data).then(res => res.data),
+    api.post<TelegramSendResponse>('/telegram/test-notify-billing', data).then(res => res.data),
 }
 
 export const uptimeApi = {

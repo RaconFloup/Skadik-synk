@@ -3,25 +3,18 @@ from datetime import datetime, timezone
 import httpx
 
 from app.database import SessionLocal
-from app.models.setting import AppSetting
 from app.models.notification_queue import NotificationQueue
+from app.services.settings_utils import get_settings
 
 
 def _get_notify_settings() -> dict:
-    db = SessionLocal()
-    try:
-        keys = [
-            "telegram_bot_token", "socks5_proxy",
-            "uptime_notify_chat_id", "uptime_notify_topic_id",
-            "uptime_notify_on_down", "uptime_notify_on_up",
-            "uptime_notify_down_template", "uptime_notify_up_template",
-        ]
-        rows = db.query(AppSetting).filter(AppSetting.key.in_(keys)).all()
-        return {row.key: row.value for row in rows}
-    except:
-        return {}
-    finally:
-        db.close()
+    keys = [
+        "telegram_bot_token", "socks5_proxy",
+        "uptime_notify_chat_id", "uptime_notify_topic_id",
+        "uptime_notify_on_down", "uptime_notify_on_up",
+        "uptime_notify_down_template", "uptime_notify_up_template",
+    ]
+    return get_settings(keys)
 
 
 def _try_send(token: str, chat_id: str, text: str, topic_id: str | None, proxy: str | None) -> str | None:

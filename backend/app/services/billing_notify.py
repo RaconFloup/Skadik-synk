@@ -1,10 +1,13 @@
 from datetime import date
 
+from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
 from app.models.setting import AppSetting
 from app.models.server import Server
 from app.models.hosting import Hosting
 from app.services.telegram_notify import _try_send, _save_to_queue
+from app.services.settings_utils import get_settings
 
 COUNTRY_RU: dict[str, str] = {
     "ru": "\U0001F1F7\U0001F1FA Россия",
@@ -49,14 +52,7 @@ CURRENCY_SYMBOLS = {"RUB": "\u20bd", "USD": "$", "EUR": "\u20ac"}
 
 
 def _get_settings(keys: list[str]) -> dict:
-    db = SessionLocal()
-    try:
-        rows = db.query(AppSetting).filter(AppSetting.key.in_(keys)).all()
-        return {row.key: row.value for row in rows}
-    except:
-        return {}
-    finally:
-        db.close()
+    return get_settings(keys)
 
 
 def _country_ru(raw: str) -> str:
@@ -64,30 +60,24 @@ def _country_ru(raw: str) -> str:
     return COUNTRY_RU.get(code, raw)
 
 
-def _load_purpose_labels() -> dict[str, str]:
-    db = SessionLocal()
+def _load_purpose_labels(db: Session) -> dict[str, str]:
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "purposes").first()
         if row and row.value:
             import json
             items = json.loads(row.value)
             return {p["value"]: p["label"] for p in items if isinstance(p, dict)}
-    except:
+    except Exception:
         pass
-    finally:
-        db.close()
     return {}
 
 
-def _load_hosting_urls() -> dict[str, str]:
-    db = SessionLocal()
+def _load_hosting_urls(db: Session) -> dict[str, str]:
     try:
         hostings = db.query(Hosting).all()
         return {h.name: (h.url or "") for h in hostings}
-    except:
+    except Exception:
         return {}
-    finally:
-        db.close()
 
 
 def _days_remaining(next_payment: date | None) -> int | None:
@@ -136,8 +126,10 @@ def _generate_report(template: str) -> str:
     db = SessionLocal()
     try:
         servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
-        purpose_labels = _load_purpose_labels()
-        hosting_urls = _load_hosting_urls()
+        purpose_labels = _load_purpose_labels(db)
+        hosting_urls = _load_hosting_urls(db)
+        nickname_row = db.query(AppSetting).filter(AppSetting.key == "billing_notify_nickname").first()
+        nickname = nickname_row.value if nickname_row and nickname_row.value else ""
     finally:
         db.close()
 
@@ -193,10 +185,8 @@ def _generate_report(template: str) -> str:
     groups_text = "\n".join(all_lines)
     report = template.replace("{date}", today_str).replace("{groups}", groups_text).replace("{total}", total_str)
 
-    if has_urgent:
-        nickname = _get_settings(["billing_notify_nickname"]).get("billing_notify_nickname", "")
-        if nickname:
-            report += f"\n\n\U0001f464 Оплатить: @{nickname}"
+    if has_urgent and nickname:
+        report += f"\n\n\U0001f464 Оплатить: @{nickname}"
 
     return report
 

@@ -56,7 +56,7 @@ def _get_timeout() -> float:
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "uptime_check_timeout").first()
         return float(row.value) if row and row.value else 5.0
-    except:
+    except Exception:
         return 5.0
     finally:
         db.close()
@@ -143,7 +143,7 @@ def _run_all_checks():
         try:
             if db.is_active:
                 db.close()
-        except:
+        except Exception:
             pass
 
 
@@ -152,7 +152,7 @@ def _get_interval() -> int:
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "uptime_check_interval").first()
         return int(row.value) if row and row.value else 60
-    except:
+    except Exception:
         return 60
     finally:
         db.close()
@@ -163,7 +163,7 @@ def _get_retry_count() -> int:
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "uptime_retry_count").first()
         return int(row.value) if row and row.value else 3
-    except:
+    except Exception:
         return 3
     finally:
         db.close()
@@ -174,7 +174,7 @@ def _get_retention_days() -> int:
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "uptime_retention_days").first()
         return int(row.value) if row and row.value else 90
-    except:
+    except Exception:
         return 90
     finally:
         db.close()
@@ -244,14 +244,14 @@ def _register_billing_job():
     try:
         row = db.query(AppSetting).filter(AppSetting.key == "billing_notify_time").first()
         time_str = row.value if row and row.value else "09:00"
-    except:
+    except Exception:
         time_str = "09:00"
     finally:
         db.close()
 
     try:
         hour, minute = map(int, time_str.split(":"))
-    except:
+    except Exception:
         hour, minute = 9, 0
 
     if scheduler.get_job("billing_report"):
@@ -267,22 +267,8 @@ def _register_billing_job():
 
 
 def restart_scheduler():
-    if scheduler.get_job("uptime_checker"):
-        scheduler.remove_job("uptime_checker")
-    interval = _get_interval()
-    scheduler.add_job(
-        _run_all_checks,
-        "interval",
-        seconds=interval,
-        id="uptime_checker",
-        replace_existing=True,
-    )
-    _schedule_cleanup()
-    _register_queue_job()
-    _register_billing_job()
-    if not scheduler.running:
-        scheduler.start()
-    return {"interval": interval, "retention_days": _get_retention_days(), "timeout": _get_timeout()}
+    start_scheduler()
+    return {"interval": _get_interval(), "retention_days": _get_retention_days(), "timeout": _get_timeout()}
 
 
 def stop_scheduler():

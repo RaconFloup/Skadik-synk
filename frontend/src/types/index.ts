@@ -201,3 +201,32 @@ export interface UptimeMonitorWithStatus {
   uptime_24h: number | null
   uptime_7d: number | null
 }
+
+export interface TelegramTestTokenResponse {
+  ok: boolean
+  username?: string
+}
+
+export interface TelegramSendResponse {
+  ok: boolean
+  error?: string
+}
+
+export interface ExchangeRatesResponse {
+  rates: Record<string, number>
+  updated_at: string | null
+}
+
+export interface BrandingResponse {
+  app_logo?: string
+  app_name?: string
+}
+
+export interface AuthLoginResponse {
+  token: string
+}
+
+export interface ApiResponse<T> {
+  data: T
+  error?: string
+}
