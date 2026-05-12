@@ -8,6 +8,7 @@ from app.models.server import Server
 from app.models.uptime import UptimeMonitor
 from app.schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from app.services import termix, google_drive
+from app.services.currency_utils import recalc_server_costs, _load_exchange_rates
 
 router = APIRouter(prefix="/api/servers", tags=["servers"])
 
@@ -72,8 +73,11 @@ def get_server(server_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("", response_model=ServerResponse, status_code=status.HTTP_201_CREATED)
 async def create_server(server_data: ServerCreate, db: Session = Depends(get_db)):
-    server = Server(**server_data.model_dump())
+    server = Server(**server_data.model_dump(exclude={"services"}))
+    if server_data.services:
+        server.services = server_data.services
     db.add(server)
+    recalc_server_costs(db, server)
     db.commit()
     db.refresh(server)
 
@@ -103,6 +107,9 @@ def update_server(server_id: UUID, server_data: ServerUpdate, db: Session = Depe
     for field, value in update_data.items():
         setattr(server, field, value)
     server.needs_sync = True
+
+    if "cost" in update_data or "currency" in update_data:
+        recalc_server_costs(db, server)
 
     monitor = db.query(UptimeMonitor).filter(UptimeMonitor.server_id == server.id).first()
     if monitor:

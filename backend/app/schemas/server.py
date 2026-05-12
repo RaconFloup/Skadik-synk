@@ -57,6 +57,10 @@ class ServerResponse(ServerBase):
     last_paid_at: Optional[date] = None
     created_at: datetime
     updated_at: datetime
+    costs: Optional[dict] = {}
+
+    class Config:
+        from_attributes = True
 
     class Config:
         from_attributes = True

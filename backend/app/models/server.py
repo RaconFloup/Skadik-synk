@@ -22,6 +22,7 @@ class Server(Base):
     cost = Column(Numeric(10, 2))
     currency = Column(String(10), default="USD")
     cycle = Column(String(20), default="monthly")
+    costs = Column(JSONB, default={})
     created = Column(Date)
     next_payment = Column(Date)
     notes = Column(Text)

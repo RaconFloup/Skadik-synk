@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.setting import AppSetting
+from app.services.currency_utils import recalc_all_server_costs
 
 router = APIRouter(prefix="/api/exchange-rates", tags=["exchange-rates"])
 
@@ -94,6 +95,7 @@ def refresh_exchange_rates(db: Session = Depends(get_db)):
         data = _fetch_rates()
         _save_rates(db, data)
         rates, updated_at = _read_cached(db)
+        recalc_all_server_costs(db)
         return _response(rates, updated_at)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))

@@ -12,6 +12,7 @@ export interface Server {
   cost?: number
   currency: string
   cycle: string
+  costs?: Record<string, number>
   created?: string
   next_payment?: string
   notes?: string

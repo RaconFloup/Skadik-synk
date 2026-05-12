@@ -57,7 +57,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   const [view, setView] = useState<'calendar' | 'list'>('calendar')
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [baseCurrency, setBaseCurrency] = useState('RUB')
+  const [mainCurrency, setMainCurrency] = useState('RUB')
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1, RUB: 85, EUR: 0.92 })
   const [loadingRates, setLoadingRates] = useState(true)
   const [ratesTimestamp, setRatesTimestamp] = useState<number | null>(null)
@@ -69,12 +69,12 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
 
   useEffect(() => {
     Promise.all([
-      settingsApi.getAll().catch(() => ({ base_currency: 'RUB' })),
+      settingsApi.getAll().catch(() => ({ main_currency: 'RUB' })),
       exchangeRatesApi.get().catch(() => null),
       hostingApi.getAll().catch(() => [] as Hosting[]),
     ]).then(([rawSettings, data, hostings]) => {
       const settings = rawSettings as Record<string, string>
-      if (settings.base_currency) setBaseCurrency(settings.base_currency)
+      if (settings.main_currency) setMainCurrency(settings.main_currency)
       if (data?.rates) setRates(data.rates)
       const logoMap: Record<string, string> = {}
       const urlMap: Record<string, string> = {}
@@ -121,12 +121,15 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     }
   }, [])
 
-  function toBaseCurrency(cost: number, currency: string): number {
-    const costInUsd = cost / (rates[currency] || 1)
-    return costInUsd * (rates[baseCurrency] || 1)
+  function getCostInMainCurrency(server: Server): number {
+    if (server.costs?.[mainCurrency]) return server.costs[mainCurrency]
+    const cost = server.cost || 0
+    const cur = server.currency || 'USD'
+    const costInUsd = cost / (rates[cur] || 1)
+    return costInUsd * (rates[mainCurrency] || 1)
   }
 
-  const currencySymbol = CURRENCY_SYMBOLS[baseCurrency] || baseCurrency
+  const currencySymbol = CURRENCY_SYMBOLS[mainCurrency] || mainCurrency
 
   const now = new Date()
   const currentMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
@@ -177,7 +180,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
     return (a.next_payment || '').localeCompare(b.next_payment || '')
   })
 
-  const totalMonthly = serversWithPayments.reduce((sum, s) => sum + toBaseCurrency(s.cost || 0, s.currency || 'USD'), 0)
+  const totalMonthly = visiblePayments.reduce((sum, s) => sum + getCostInMainCurrency(s), 0)
   const overdueCount = serversWithPayments.filter((s) => s.next_payment && !isPaidThisMonth(s) && daysUntil(s.next_payment) < 0).length
 
   const year = currentMonth.getFullYear()
@@ -286,7 +289,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
               <DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4" />
-              <span>Курс к {baseCurrency}</span>
+              <span>Курс к {mainCurrency}</span>
             </div>
             <button
               onClick={fetchRates}
@@ -301,12 +304,12 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
             </button>
           </div>
           <div className="mt-1.5 md:mt-2 space-y-0.5 md:space-y-1">
-            {['USD', 'EUR', 'RUB'].filter((c) => c !== baseCurrency).slice(0, 3).map((c) => {
-              const rate = rates[baseCurrency] / (rates[c] || 1)
+            {['USD', 'EUR', 'RUB'].filter((c) => c !== mainCurrency).slice(0, 3).map((c) => {
+              const rate = rates[mainCurrency] / (rates[c] || 1)
               return (
                 <div key={c} className="flex items-center justify-between text-xs md:text-sm">
                   <span className="text-muted-foreground">1 {c}</span>
-                  <span className="font-medium">{rate.toFixed(2)} {baseCurrency}</span>
+                  <span className="font-medium">{rate.toFixed(2)} {mainCurrency}</span>
                 </div>
               )
             })}
@@ -423,9 +426,10 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                                   ) : null}
                                   {s.hosting}
                                 </div>
-                                {s.cost ? (
+                                {(s.cost || s.costs?.[mainCurrency]) ? (
                                   <div className={`font-semibold ${isSelected ? 'text-primary-foreground' : isPaid ? 'text-muted-foreground/30 line-through' : 'text-emerald-400'}`}>
-                                    {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
+                                    {currencySymbol}{getCostInMainCurrency(s).toFixed(2)}
+                                    {s.cost && s.currency !== mainCurrency && <span className="text-[10px] opacity-60 ml-1">({CURRENCY_SYMBOLS[s.currency] || s.currency}{s.cost})</span>}
                                   </div>
                                 ) : null}
                                 {isPaid && (
@@ -506,7 +510,7 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
                             )}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {s.cost && <span className={`font-semibold ${isPaid ? 'text-muted-foreground/50' : 'text-emerald-400'}`}>{currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}</span>}
+                            {(s.cost || s.costs?.[mainCurrency]) && <span className={`font-semibold ${isPaid ? 'text-muted-foreground/50' : 'text-emerald-400'}`}>{currencySymbol}{getCostInMainCurrency(s).toFixed(2)}{s.cost && s.currency !== mainCurrency && <span className="text-muted-foreground/50 ml-1">({CURRENCY_SYMBOLS[s.currency] || s.currency}{s.cost})</span>}</span>}
                             <span className="ml-1">{getCycleLabel(s.cycle)}</span>
                           </div>
                         </div>
@@ -624,9 +628,10 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
 
                       <div className="flex items-center gap-2">
                         <div className="text-right">
-                          {s.cost && (
+                          {(s.cost || s.costs?.[mainCurrency]) && (
                             <div className={`text-sm font-semibold ${isPaid ? 'text-muted-foreground/50' : ''}`}>
-                              {currencySymbol}{toBaseCurrency(s.cost, s.currency || 'USD').toFixed(2)}
+                              {currencySymbol}{getCostInMainCurrency(s).toFixed(2)}
+                              {s.cost && s.currency !== mainCurrency && <span className="text-muted-foreground/50 ml-1">({CURRENCY_SYMBOLS[s.currency] || s.currency}{s.cost})</span>}
                             </div>
                           )}
                           <div className="text-xs text-muted-foreground">{getCycleLabel(s.cycle)}</div>

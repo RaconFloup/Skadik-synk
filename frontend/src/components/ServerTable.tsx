@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Server, PurposeItem } from '@/types'
 import { DEFAULT_PURPOSES, CURRENCIES, CYCLES } from '@/types'
-import { hostingApi } from '@/api/client'
+import { hostingApi, settingsApi } from '@/api/client'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -60,13 +60,19 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
   const order = purposeOrder ?? DEFAULT_PURPOSE_ORDER
   const purposeList = purposes ?? DEFAULT_PURPOSES
   const [hostingLogoMap, setHostingLogoMap] = useState<Record<string, string>>({})
+  const [mainCurrency, setMainCurrency] = useState('RUB')
 
   useEffect(() => {
-    hostingApi.getAll().then((hostings) => {
+    Promise.all([
+      hostingApi.getAll().catch(() => []),
+      settingsApi.getAll().catch(() => ({} as Record<string, string>)),
+    ]).then(([hostings, settings]) => {
       const map: Record<string, string> = {}
       hostings.forEach((h) => { if (h.name) map[h.name] = h.logo_url || '' })
       setHostingLogoMap(map)
-    }).catch(() => {})
+      const s = settings as Record<string, string>
+      if (s.main_currency) setMainCurrency(s.main_currency)
+    })
   }, [])
 
   const groups = order
@@ -93,6 +99,7 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
           onSave={onSave}
           purposeList={purposeList}
           hostingLogoMap={hostingLogoMap}
+          mainCurrency={mainCurrency}
         />
       ))}
       {groups.length === 0 && (
@@ -105,11 +112,11 @@ export function ServerTable({ servers, onSync, syncingId, onDelete, onSave, purp
 }
 
 function ServerGroupSection({
-  purpose, servers, onSync, syncingId, onDelete, onSave, purposeList, hostingLogoMap,
+  purpose, servers, onSync, syncingId, onDelete, onSave, purposeList, hostingLogoMap, mainCurrency,
 }: {
   purpose: string; servers: Server[]; onSync: (id: string) => void; syncingId: string | null
   onDelete: (id: string) => void; onSave: (id: string, data: Partial<Server>) => Promise<void>
-  purposeList: PurposeItem[]; hostingLogoMap: Record<string, string>
+  purposeList: PurposeItem[]; hostingLogoMap: Record<string, string>; mainCurrency: string
 }) {
   const purposeLabel = purposeList.find((p) => p.value === purpose)?.label || purpose
   const count = servers.length
@@ -130,6 +137,7 @@ function ServerGroupSection({
             onSave={onSave}
             purposeList={purposeList}
             hostingLogoMap={hostingLogoMap}
+            mainCurrency={mainCurrency}
           />
         ))}
       </div>
@@ -138,11 +146,11 @@ function ServerGroupSection({
 }
 
 function ServerCard({
-  server, onSync, syncingId, onDelete, onSave, purposeList, hostingLogoMap,
+  server, onSync, syncingId, onDelete, onSave, purposeList, hostingLogoMap, mainCurrency,
 }: {
   server: Server; onSync: (id: string) => void; syncingId: string | null
   onDelete: (id: string) => void; onSave: (id: string, data: Partial<Server>) => Promise<void>
-  purposeList: PurposeItem[]; hostingLogoMap: Record<string, string>
+  purposeList: PurposeItem[]; hostingLogoMap: Record<string, string>; mainCurrency: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editData, setEditData] = useState<Partial<Server>>({})
@@ -167,6 +175,12 @@ function ServerCard({
   }
 
   const edit = (field: string, value: unknown) => setEditData((prev) => ({ ...prev, [field]: value }))
+
+  const costInMain = server.costs?.[mainCurrency]
+  const CURR_SYMBOLS: Record<string, string> = { RUB: '₽', USD: '$', EUR: '€' }
+  const mainSym = CURR_SYMBOLS[mainCurrency] || mainCurrency
+  const origSym = CURR_SYMBOLS[server.currency] || server.currency
+  const showOrig = costInMain && server.cost && server.currency !== mainCurrency
 
   return (
     <div className={'rounded-lg border border-border/50 bg-card transition-shadow duration-200 overflow-hidden ' + (expanded ? 'shadow-md' : 'hover:shadow-sm')}>
@@ -199,8 +213,9 @@ function ServerCard({
 
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="font-medium text-foreground">{server.cost}</span>
-            <span>{server.currency}</span>
+            <span className="font-medium text-foreground">{costInMain ? mainSym + costInMain.toFixed(2) : (server.cost ?? '—')}</span>
+            {showOrig && <span className="text-muted-foreground/60">({origSym}{server.cost})</span>}
+            {!costInMain && server.cost && <span>{server.currency}</span>}
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Zap className="h-3 w-3 shrink-0" />

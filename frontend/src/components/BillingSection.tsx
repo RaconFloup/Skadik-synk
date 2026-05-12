@@ -16,6 +16,7 @@ export default function BillingSection({ showToast }: { showToast: (msg: string,
   const [templateOpen, setTemplateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [testOk, setTestOk] = useState(false)
 
   useEffect(() => {
     settingsApi.getAll().then((data) => {
@@ -56,6 +57,10 @@ export default function BillingSection({ showToast }: { showToast: (msg: string,
         template: template,
       })
       showToast(result.ok ? 'Отчёт отправлен' : 'Ошибка: ' + (result.error || 'неизвестная'), result.ok ? 'success' : 'error')
+      if (result.ok) {
+        setTestOk(true)
+        setTimeout(() => setTestOk(false), 2000)
+      }
     } catch {
       showToast('Ошибка отправки отчёта', 'error')
     } finally {
@@ -122,9 +127,10 @@ export default function BillingSection({ showToast }: { showToast: (msg: string,
             {saving ? 'Сохранение...' : 'Сохранить'}
           </button>
           <button onClick={test} disabled={testing}
-            className="rounded-md border border-border/50 px-4 py-2 text-sm font-medium transition-colors hover:bg-accent/30 disabled:opacity-50">
+            className="rounded-md bg-secondary text-secondary-foreground px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50">
             {testing ? 'Отправка...' : 'Тестовый отчёт'}
           </button>
+          {testOk && <span className="inline-flex items-center justify-center rounded-full bg-green-500/15 px-2 py-0.5 text-sm text-green-500 font-medium animate-in fade-in zoom-in">✓</span>}
         </div>
       </div>
     </div>

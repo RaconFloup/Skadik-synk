@@ -122,16 +122,71 @@ DEFAULT_REPORT_TEMPLATE = (
 )
 
 
+def _load_exchange_rates(db: Session) -> dict[str, float]:
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "exchange_rates").first()
+        if row and row.value:
+            import json
+            return json.loads(row.value)
+    except Exception:
+        pass
+    return {}
+
+
+def _load_main_currency(db: Session) -> str:
+    try:
+        row = db.query(AppSetting).filter(AppSetting.key == "main_currency").first()
+        if row and row.value:
+            return row.value
+    except Exception:
+        pass
+    return "RUB"
+
+
+def _convert_to_main(cost_val: float, currency: str, rates: dict, main_currency: str) -> float:
+    if not cost_val or not currency or currency == main_currency:
+        return cost_val
+    rate_from = rates.get(currency)
+    rate_to = rates.get(main_currency)
+    if rate_from and rate_to:
+        return cost_val * rate_to / rate_from
+    return cost_val
+
+
 def _generate_report(template: str) -> str:
     db = SessionLocal()
     try:
-        servers = db.query(Server).order_by(Server.purpose, Server.hosting).all()
         purpose_labels = _load_purpose_labels(db)
         hosting_urls = _load_hosting_urls(db)
         nickname_row = db.query(AppSetting).filter(AppSetting.key == "billing_notify_nickname").first()
         nickname = nickname_row.value if nickname_row and nickname_row.value else ""
+        rates = _load_exchange_rates(db)
+        main_currency = _load_main_currency(db)
     finally:
         db.close()
+
+    today = date.today()
+    current_month_key = f"{today.year}-{today.month:02d}"
+    today_str = today.strftime("%d.%m.%Y")
+
+    db = SessionLocal()
+    try:
+        servers = db.query(Server).filter(
+            Server.status == "active",
+        ).order_by(Server.purpose, Server.hosting).all()
+    finally:
+        db.close()
+
+    def in_current_month(s: Server) -> bool:
+        np = s.next_payment
+        lp = s.last_paid_at
+        if np and np.strftime("%Y-%m") == current_month_key:
+            return True
+        if lp and lp.strftime("%Y-%m") == current_month_key:
+            return True
+        return False
+
+    servers = [s for s in servers if in_current_month(s)]
 
     groups: dict[str, list[Server]] = {}
     order = ["PANEL", "NODE", "SERVICES"]
@@ -140,8 +195,6 @@ def _generate_report(template: str) -> str:
         if g not in groups:
             groups[g] = []
         groups[g].append(s)
-
-    today_str = date.today().strftime("%d.%m.%Y")
 
     all_lines: list[str] = []
     total_cost = 0.0
@@ -155,11 +208,20 @@ def _generate_report(template: str) -> str:
         all_lines.append(f"\n{emoji} {label}")
         for i, s in enumerate(grp_servers, 1):
             cost_val = float(s.cost) if s.cost else 0
-            total_cost += cost_val
+            cur = s.currency or ""
+            costs = s.costs or {}
+            main_val = costs.get(main_currency) or _convert_to_main(cost_val, cur, rates, main_currency)
+            total_cost += main_val
             days = _days_remaining(s.next_payment)
             days_str = f"{days} дн." if days is not None else "\u2014"
             icon = _icon(bool(s.not_renewing), days)
-            cost_str = _fmt_cost(cost_val, s.currency or "")
+            is_paid = bool(s.last_paid_at) and s.last_paid_at.strftime("%Y-%m") == current_month_key
+            paid_badge = "\u2705 \u041e\u043f\u043b\u0430\u0447\u0435\u043d\u043e" if is_paid else ""
+            main_sym = CURRENCY_SYMBOLS.get(main_currency, main_currency)
+            main_cost_str = f"{main_val:.2f}{main_sym}"
+            if cur and cur != main_currency and cost_val:
+                orig_sym = CURRENCY_SYMBOLS.get(cur, cur)
+                main_cost_str += f" ({orig_sym}{cost_val:.2f})"
             prefix_char = "\u2514" if i == len(grp_servers) else "\u251c"
             pad = " " * len(prefix_char)
             country = _country_ru(s.country or "")
@@ -170,13 +232,13 @@ def _generate_report(template: str) -> str:
             else:
                 hosting_display = hosting_name
             line1 = f"{prefix_char} {label} [{country}] {hosting_display}"
-            line2 = f"{pad} {cost_str} \u2014 {days_str} {icon}"
+            line2 = f"{pad} {main_cost_str} \u2014 {paid_badge} {days_str} {icon}" if is_paid else f"{pad} {main_cost_str} \u2014 {days_str} {icon}"
             all_lines.append(line1)
             all_lines.append(line2)
             if days is not None and days <= 1:
                 has_urgent = True
 
-    total_sym = "₽"
+    total_sym = CURRENCY_SYMBOLS.get(main_currency, main_currency)
     total_str = f"{total_cost:.2f}{total_sym}"
 
     if not template:
