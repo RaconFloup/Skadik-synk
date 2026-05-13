@@ -78,6 +78,19 @@ def run_migrations():
             END $$;
         """))
 
+        for col, typ in [("uptime_formatted", "VARCHAR(30)"), ("uptime_seconds", "FLOAT"), ("system_hostname", "VARCHAR(255)"), ("system_kernel", "VARCHAR(255)"), ("system_os", "VARCHAR(255)")]:
+            conn.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'host_metric_snapshots' AND column_name = '{col}'
+                    ) THEN
+                        ALTER TABLE host_metric_snapshots ADD COLUMN {col} {typ};
+                    END IF;
+                END $$;
+            """))
+
         conn.commit()
 
 

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting, UptimeMonitor, UptimeCheck, UptimeMonitorWithStatus, TelegramTestTokenResponse, TelegramSendResponse, ExchangeRatesResponse, BrandingResponse, AuthLoginResponse } from '@/types'
+import type { Server, ServerCreate, SyncResult, ActivityLog, Hosting, UptimeMonitor, UptimeCheck, UptimeMonitorWithStatus, TelegramTestTokenResponse, TelegramSendResponse, ExchangeRatesResponse, BrandingResponse, AuthLoginResponse, HostMetrics, MetricSnapshot } from '@/types'
 
 const TOKEN_KEY = 'skadik-auth-token'
 
@@ -118,6 +118,14 @@ export const uptimeApi = {
     api.post(`/uptime/${id}/check-now`).then(res => res.data),
   restartScheduler: () =>
     api.post('/uptime/restart-scheduler').then(res => res.data),
+}
+
+export const metricsApi = {
+  getMetrics: (hostId: number) => api.get<HostMetrics | { error: string; metrics: null }>(`/metrics/${hostId}`).then(res => res.data),
+  getHistory: (hostId: number, minutes = 10) =>
+    api.get<MetricSnapshot[]>(`/metrics/${hostId}/history`, { params: { minutes } }).then(res => res.data),
+  refreshMetrics: (hostId: number) =>
+    api.post<HostMetrics | { error: string }>(`/metrics/${hostId}/refresh`).then(res => res.data),
 }
 
 export default api

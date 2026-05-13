@@ -14,8 +14,10 @@ from app.routers.exchange_rates import router as exchange_rates_router
 from app.routers.auth import router as auth_router
 from app.routers.uptime import router as uptime_router
 from app.routers.flags import router as flags_router
+from app.routers.metrics import router as metrics_router
 from app.dependencies.auth import auth_middleware
 from app.services.uptime_checker import start_scheduler, stop_scheduler
+from app.services.metrics_collector import start_collector, stop_collector
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -46,19 +48,22 @@ app.include_router(exchange_rates_router)
 app.include_router(auth_router)
 app.include_router(uptime_router)
 app.include_router(flags_router)
+app.include_router(metrics_router)
 
 
 @app.on_event("startup")
-def startup():
+async def startup():
     logger.info("Starting Skadik Synk API")
     init_db()
     start_scheduler()
+    await start_collector()
 
 
 @app.on_event("shutdown")
 def shutdown():
     logger.info("Shutting down Skadik Synk API")
     stop_scheduler()
+    stop_collector()
 
 
 @app.get("/api/health")

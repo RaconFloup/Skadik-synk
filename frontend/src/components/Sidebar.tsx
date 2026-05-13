@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard, HelpCircle, LogOut, Wifi, X } from 'lucide-react'
+import { Server, ChevronLeft, ChevronRight, Globe, Settings, Activity, LayoutDashboard, CreditCard, HelpCircle, LogOut, Wifi, X, AreaChart } from 'lucide-react'
 import { logout } from '@/api/client'
 
 interface SidebarProps {
-  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq' | 'uptime'
-  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq' | 'uptime') => void
+  activeView: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq' | 'uptime' | 'monitoring'
+  onViewChange: (view: 'dashboard' | 'servers' | 'activity' | 'settings' | 'billing' | 'faq' | 'uptime' | 'monitoring') => void
   serverCount: number
   appLogo?: string
   appName?: string
@@ -22,6 +22,7 @@ export function Sidebar({ activeView, onViewChange, serverCount, appLogo, appNam
     { id: 'servers' as const, icon: Server, label: 'Серверы', count: serverCount },
     { id: 'billing' as const, icon: CreditCard, label: 'Биллинг' },
     { id: 'uptime' as const, icon: Wifi, label: 'Аптайм' },
+    { id: 'monitoring' as const, icon: AreaChart, label: 'Мониторинг' },
     { id: 'activity' as const, icon: Activity, label: 'Активность' },
     { id: 'settings' as const, icon: Settings, label: 'Настройки' },
     { id: 'faq' as const, icon: HelpCircle, label: 'FAQ' },

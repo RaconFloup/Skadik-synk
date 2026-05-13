@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import type { Server, PurposeItem } from '@/types'
-import { CreditCard, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban, ExternalLink, RefreshCw, Check } from 'lucide-react'
+import { Server as ServerIcon, DollarSign, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, Clock, List, Grid3X3, Loader2, CheckCircle2, Ban, ExternalLink, RefreshCw, Check } from 'lucide-react'
 import { settingsApi, hostingApi, serversApi, exchangeRatesApi } from '@/api/client'
 import type { Hosting } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -181,7 +181,17 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
   })
 
   const totalMonthly = visiblePayments.reduce((sum, s) => sum + getCostInMainCurrency(s), 0)
-  const overdueCount = serversWithPayments.filter((s) => s.next_payment && !isPaidThisMonth(s) && daysUntil(s.next_payment) < 0).length
+
+  const paidThisMonth = visiblePayments.filter((s) => isPaidThisMonth(s))
+  const paidCount = paidThisMonth.length
+  const paidTotal = paidThisMonth.reduce((sum, s) => sum + getCostInMainCurrency(s), 0)
+  const unpaidTotal = totalMonthly - paidTotal
+
+  const activeCount = servers.filter((s) => s.status === 'active').length
+
+  const overdueServers = serversWithPayments.filter((s) => s.next_payment && !isPaidThisMonth(s) && daysUntil(s.next_payment) < 0)
+  const overdueCount = overdueServers.length
+  const overdueCost = overdueServers.reduce((sum, s) => sum + getCostInMainCurrency(s), 0)
 
   const year = currentMonth.getFullYear()
   const month = currentMonth.getMonth()
@@ -259,24 +269,29 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
         <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm">
           <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
-            <CreditCard className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>Активных оплат</span>
+            <ServerIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span>Активных серверов</span>
           </div>
-          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">{serversWithPayments.length}</p>
+          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">{activeCount}</p>
         </div>
         <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm">
           <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
             <DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>Общая стоимость /мес</span>
+            <span>Стоимость /мес</span>
           </div>
-          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">{loadingRates ? <Loader2 className="inline h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <>{currencySymbol}{totalMonthly.toFixed(2)}</>}</p>
+          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">
+            {loadingRates ? <Loader2 className="inline h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <>{currencySymbol}{totalMonthly.toFixed(2)}</>}
+          </p>
         </div>
-        <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm">
+        <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm sm:col-span-2 md:col-span-1">
           <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
-            <CalendarDays className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span>Оплат в {MONTHS[currentMonth.getMonth()].toLowerCase()}</span>
+            <CheckCircle2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span>Оплачено в {MONTHS[currentMonth.getMonth()].toLowerCase()}</span>
           </div>
-          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">{visiblePayments.length}</p>
+          <p className="mt-1 md:mt-2 text-xl md:text-3xl font-bold">{paidCount} / {visiblePayments.length}</p>
+          <div className="mt-0.5 text-xs text-muted-foreground/70">
+            {currencySymbol}{paidTotal.toFixed(0)} / {currencySymbol}{unpaidTotal.toFixed(0)}
+          </div>
         </div>
         <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm">
           <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
@@ -284,38 +299,41 @@ export function BillingPage({ servers, onServersChange }: BillingPageProps) {
             <span>Просрочено</span>
           </div>
           <p className={`mt-1 md:mt-2 text-xl md:text-3xl font-bold ${overdueCount > 0 ? 'text-red-400' : ''}`}>{overdueCount}</p>
+          {overdueCost > 0 && (
+            <div className="mt-0.5 text-xs text-red-400/70">+ {currencySymbol}{overdueCost.toFixed(0)}</div>
+          )}
         </div>
         <div className="rounded-xl border border-border/50 bg-card p-3 md:p-5 shadow-sm col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-muted-foreground">
-              <DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4" />
-              <span>Курс к {mainCurrency}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs md:text-sm text-muted-foreground">Курс к {mainCurrency}</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={fetchRates}
+                disabled={ratesLoading}
+                className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                title="Обновить курсы валют"
+              >
+                {ratesJustUpdated ? (
+                  <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-emerald-400" />
+                ) : (
+                  <RefreshCw className={'h-3.5 w-3.5 md:h-4 md:w-4' + (ratesLoading ? ' animate-spin' : '')} />
+                )}
+              </button>
             </div>
-            <button
-              onClick={fetchRates}
-              disabled={ratesLoading}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              {ratesJustUpdated ? (
-                <Check className="h-3 w-3 md:h-3.5 md:w-3.5 text-emerald-400" />
-              ) : (
-                <RefreshCw className={'h-3 w-3 md:h-3.5 md:w-3.5' + (ratesLoading ? ' animate-spin' : '')} />
-              )}
-            </button>
           </div>
-          <div className="mt-1.5 md:mt-2 space-y-0.5 md:space-y-1">
+          <div className="mt-1.5 space-y-0.5">
             {['USD', 'EUR', 'RUB'].filter((c) => c !== mainCurrency).slice(0, 3).map((c) => {
               const rate = rates[mainCurrency] / (rates[c] || 1)
               return (
-                <div key={c} className="flex items-center justify-between text-xs md:text-sm">
+                <div key={c} className="flex items-center justify-between text-[11px] md:text-xs">
                   <span className="text-muted-foreground">1 {c}</span>
-                  <span className="font-medium">{rate.toFixed(2)} {mainCurrency}</span>
+                  <span className="font-medium tabular-nums">{rate.toFixed(2)}</span>
                 </div>
               )
             })}
             {ratesTimestamp && (
-              <div className="pt-0.5 md:pt-1 text-[9px] md:text-[10px] text-muted-foreground/50">
-                Обновлено: {new Date(ratesTimestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              <div className="pt-0.5 text-[9px] md:text-[10px] text-muted-foreground/50">
+                {new Date(ratesTimestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
               </div>
             )}
           </div>

@@ -15,6 +15,7 @@ import { Toast } from '@/components/ui/toast'
 import { ServerTable } from '@/components/ServerTable'
 import { ServerForm } from '@/components/ServerForm'
 import { Sidebar } from '@/components/Sidebar'
+import { MonitoringPage } from '@/components/MonitoringPage'
 import { AppearanceSettings } from '@/components/AppearanceSettings'
 import { GeneralSettings } from '@/components/GeneralSettings'
 import { HostingManager } from '@/components/HostingManager'
@@ -25,12 +26,13 @@ import { FAQPage } from '@/components/FAQPage'
 import { UptimePage } from '@/components/UptimePage'
 import { UptimeSettings } from '@/components/UptimeSettings'
 import { NotificationSettings } from '@/components/NotificationSettings'
+import { MonitoringSettings } from '@/components/MonitoringSettings'
 import { Plus, RefreshCw, Zap, Loader2, LayoutDashboard, X, Server as ServerIcon, Wifi, Menu } from 'lucide-react'
 import { countryName } from '@/lib/flags'
 import { updateFavicon } from '@/config/themes'
 
-type View = 'dashboard' | 'servers' | 'billing' | 'uptime' | 'activity' | 'settings' | 'faq'
-type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations' | 'uptime' | 'notifications'
+type View = 'dashboard' | 'servers' | 'billing' | 'uptime' | 'activity' | 'settings' | 'faq' | 'monitoring'
+type SettingsTab = 'general' | 'appearance' | 'hostings' | 'integrations' | 'uptime' | 'notifications' | 'monitoring'
 
 const DEFAULT_ORDER = ['PANEL', 'NODE', 'SERVICES']
 
@@ -51,9 +53,9 @@ export default function App() {
   const location = useLocation()
 
   const viewFromPath = location.pathname === '/' ? 'servers' : location.pathname.split('/')[1]
-  const activeView = (['dashboard', 'servers', 'billing', 'uptime', 'activity', 'settings', 'faq'].includes(viewFromPath) ? viewFromPath : 'servers') as View
+  const activeView = (['dashboard', 'servers', 'billing', 'uptime', 'activity', 'settings', 'faq', 'monitoring'].includes(viewFromPath) ? viewFromPath : 'servers') as View
   const rawTab = location.pathname.split('/')[2]
-  const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' || rawTab === 'uptime' || rawTab === 'notifications' ? rawTab : 'general') as SettingsTab
+  const settingsTab = (rawTab === 'appearance' || rawTab === 'hostings' || rawTab === 'integrations' || rawTab === 'uptime' || rawTab === 'notifications' || rawTab === 'monitoring' ? rawTab : 'general') as SettingsTab
   const [deleteServerId, setDeleteServerId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [gradientBg, setGradientBg] = useState(() => {
@@ -329,6 +331,7 @@ export default function App() {
               {activeView === 'uptime' && 'Аптайм'}
               {activeView === 'activity' && 'Активность'}
               {activeView === 'settings' && 'Настройки'}
+              {activeView === 'monitoring' && 'Мониторинг'}
               {activeView === 'faq' && 'FAQ'}
             </h1>
             <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
@@ -515,7 +518,7 @@ export default function App() {
             <div key="settings" className="animate-view-enter">
             <div>
               <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-border/50 bg-card p-1 [&::-webkit-scrollbar]:hidden">
-                {(['general', 'appearance', 'hostings', 'integrations', 'uptime', 'notifications'] as const).map((tab) => (
+                {(['general', 'appearance', 'hostings', 'integrations', 'uptime', 'notifications', 'monitoring'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => navigate('/settings/' + tab)}
@@ -529,6 +532,7 @@ export default function App() {
                     {tab === 'integrations' && 'Интеграции'}
                     {tab === 'uptime' && 'Аптайм'}
                     {tab === 'notifications' && 'Уведомления'}
+                    {tab === 'monitoring' && 'Мониторинг'}
                   </button>
                 ))}
               </div>
@@ -549,7 +553,14 @@ export default function App() {
               {settingsTab === 'integrations' && <IntegrationsSettings onViewChange={(v) => navigate('/' + v)} />}
               {settingsTab === 'uptime' && <UptimeSettings />}
               {settingsTab === 'notifications' && <NotificationSettings />}
+              {settingsTab === 'monitoring' && <MonitoringSettings />}
             </div>
+            </div>
+          )}
+
+          {activeView === 'monitoring' && (
+            <div key="monitoring" className="animate-view-enter">
+              <MonitoringPage servers={servers} />
             </div>
           )}
 

@@ -231,3 +231,63 @@ export interface ApiResponse<T> {
   data: T
   error?: string
 }
+
+export interface MetricSnapshot {
+  t: string
+  cpu: number | null
+  mem: number | null
+  mem_used: number | null
+  mem_total: number | null
+  disk: number | null
+  disk_used: string | null
+  disk_total: string | null
+}
+
+export interface HostMetrics {
+  lastChecked?: string
+  cpu?: {
+    percent: number
+    cores?: number
+    load?: number[]
+  }
+  memory?: {
+    percent: number
+    usedGiB: number
+    totalGiB: number
+  }
+  disk?: {
+    percent: number
+    usedHuman: string
+    totalHuman: string
+    availableHuman: string
+  }
+  network?: {
+    interfaces?: {
+      name: string
+      ip: string
+      state: string
+      rxBytes: number | null
+      txBytes: number | null
+    }[]
+  }
+  uptime?: {
+    seconds: number
+    formatted: string
+  }
+  system?: {
+    hostname: string
+    kernel: string
+    os: string
+  }
+  processes?: {
+    total: number
+    running: number
+    top: {
+      pid: string
+      user: string
+      cpu: string
+      mem: string
+      command: string
+    }[]
+  }
+}

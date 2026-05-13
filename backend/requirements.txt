@@ -9,3 +9,4 @@ httpx[socks]==0.26.0
 cryptography==42.0.0
 python-jose[cryptography]==3.3.0
 APScheduler==3.10.4
+asyncssh==2.14.1
