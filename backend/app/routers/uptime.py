@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case, and_
 from typing import List
 
 from app.database import get_db, SessionLocal
@@ -15,47 +15,120 @@ from app.schemas.uptime import (
     UptimeMonitorResponse,
     UptimeCheckResponse,
     UptimeMonitorWithStatus,
+    DayStat,
+    HourlyStat,
 )
 
 router = APIRouter(prefix="/api/uptime", tags=["uptime"])
 
 
-def _calc_uptime(db: Session, monitor_id: UUID, since: datetime) -> float | None:
-    total = db.query(func.count(UptimeCheck.id)).filter(
-        UptimeCheck.monitor_id == monitor_id,
-        UptimeCheck.checked_at >= since,
-    ).scalar()
-    if not total:
-        return None
-    up = db.query(func.count(UptimeCheck.id)).filter(
-        UptimeCheck.monitor_id == monitor_id,
-        UptimeCheck.is_up == True,
-        UptimeCheck.checked_at >= since,
-    ).scalar()
-    return round(up / total * 100, 1)
-
-
 @router.get("", response_model=List[UptimeMonitorWithStatus])
 def get_monitors(db: Session = Depends(get_db)):
     monitors = db.query(UptimeMonitor).order_by(UptimeMonitor.created_at.desc()).all()
+    if not monitors:
+        return []
+
     now = datetime.now(timezone.utc)
+    mids = [m.id for m in monitors]
+
+    last_check_subq = db.query(
+        UptimeCheck.monitor_id,
+        func.max(UptimeCheck.checked_at).label("max_checked_at"),
+    ).filter(UptimeCheck.monitor_id.in_(mids)).group_by(UptimeCheck.monitor_id).subquery()
+
+    last_checks = db.query(UptimeCheck).join(
+        last_check_subq,
+        and_(
+            UptimeCheck.monitor_id == last_check_subq.c.monitor_id,
+            UptimeCheck.checked_at == last_check_subq.c.max_checked_at,
+        )
+    ).all()
+    last_check_map = {c.monitor_id: c for c in last_checks}
+
+    recent_cutoff = now - timedelta(hours=24)
+    recent_rows = db.query(UptimeCheck).filter(
+        UptimeCheck.monitor_id.in_(mids),
+        UptimeCheck.checked_at >= recent_cutoff,
+    ).order_by(UptimeCheck.monitor_id, UptimeCheck.checked_at.desc()).all()
+
+    recent_map: dict[UUID, list] = {}
+    for c in recent_rows:
+        recent_map.setdefault(c.monitor_id, []).append(c)
+    for mid in recent_map:
+        recent_map[mid] = list(reversed(recent_map[mid][:288]))
+
+    def _batch_uptime(cutoff: datetime) -> dict[UUID, float | None]:
+        rows = db.query(
+            UptimeCheck.monitor_id,
+            func.count(UptimeCheck.id).label("total"),
+            func.sum(case((UptimeCheck.is_up == True, 1), else_=0)).label("up"),
+        ).filter(
+            UptimeCheck.monitor_id.in_(mids),
+            UptimeCheck.checked_at >= cutoff,
+        ).group_by(UptimeCheck.monitor_id).all()
+        return {r.monitor_id: round(r.up / r.total * 100, 1) if r.total else None for r in rows}
+
+    uptime_24h_map = _batch_uptime(now - timedelta(hours=24))
+    uptime_7d_map = _batch_uptime(now - timedelta(days=7))
+
+    daily_raw = db.query(
+        UptimeCheck.monitor_id,
+        func.date_trunc('day', UptimeCheck.checked_at).label("day"),
+        func.extract('hour', UptimeCheck.checked_at).label("hour"),
+        func.count(UptimeCheck.id).label("total"),
+        func.sum(case((UptimeCheck.is_up == True, 1), else_=0)).label("up"),
+        func.avg(UptimeCheck.response_time_ms).label("avg_ms"),
+    ).filter(
+        UptimeCheck.monitor_id.in_(mids),
+        UptimeCheck.checked_at >= now - timedelta(days=6),
+    ).group_by(
+        UptimeCheck.monitor_id,
+        func.date_trunc('day', UptimeCheck.checked_at),
+        func.extract('hour', UptimeCheck.checked_at),
+    ).order_by(
+        UptimeCheck.monitor_id,
+        func.date_trunc('day', UptimeCheck.checked_at),
+        func.extract('hour', UptimeCheck.checked_at),
+    ).all()
+
+    daily_map: dict[UUID, dict[str, list]] = {}
+    for r in daily_raw:
+        daily_map.setdefault(r.monitor_id, {})
+        day_str = r.day.strftime("%Y-%m-%d") if hasattr(r.day, 'strftime') else str(r.day)
+        daily_map[r.monitor_id].setdefault(day_str, []).append(r)
+
     result = []
     for m in monitors:
-        last_check = db.query(UptimeCheck).filter(
-            UptimeCheck.monitor_id == m.id
-        ).order_by(UptimeCheck.checked_at.desc()).first()
-        recent_checks = db.query(UptimeCheck).filter(
-            UptimeCheck.monitor_id == m.id,
-            UptimeCheck.checked_at >= now - timedelta(hours=24)
-        ).order_by(UptimeCheck.checked_at.asc()).all()
-        uptime_24h = _calc_uptime(db, m.id, now - timedelta(hours=24))
-        uptime_7d = _calc_uptime(db, m.id, now - timedelta(days=7))
+        mid = m.id
+        raw_days = daily_map.get(mid, {})
+
+        daily_stats: list[DayStat] = []
+        for day_str in sorted(raw_days.keys()):
+            hours = raw_days[day_str]
+            day_up = sum(int(r.up) for r in hours)
+            day_total = sum(int(r.total) for r in hours)
+            day_avg_all = [r.avg_ms for r in hours if r.avg_ms is not None]
+            day_avg = round(sum(day_avg_all) / len(day_avg_all), 1) if day_avg_all else None
+            hourly = [
+                HourlyStat(hour=int(r.hour), up=int(r.up), total=int(r.total))
+                for r in hours
+            ]
+            daily_stats.append(DayStat(
+                date=day_str,
+                up=day_up,
+                down=day_total - day_up,
+                total=day_total,
+                avg_response_ms=day_avg,
+                hourly=hourly,
+            ))
+
         result.append(UptimeMonitorWithStatus(
             monitor=m,
-            last_check=last_check,
-            recent_checks=recent_checks,
-            uptime_24h=uptime_24h,
-            uptime_7d=uptime_7d,
+            last_check=last_check_map.get(mid),
+            recent_checks=recent_map.get(mid, []),
+            uptime_24h=uptime_24h_map.get(mid),
+            uptime_7d=uptime_7d_map.get(mid),
+            daily_stats=daily_stats,
         ))
     return result
 

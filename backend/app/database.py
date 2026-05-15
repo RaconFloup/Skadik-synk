@@ -91,6 +91,90 @@ def run_migrations():
                 END $$;
             """))
 
+        snap_cols = [
+            ("load_1m", "FLOAT"), ("load_5m", "FLOAT"), ("load_15m", "FLOAT"),
+            ("swap_percent", "FLOAT"), ("swap_used_gib", "FLOAT"), ("swap_total_gib", "FLOAT"),
+            ("disk_io_read_mb", "FLOAT"), ("disk_io_write_mb", "FLOAT"),
+            ("net_established", "FLOAT"), ("net_time_wait", "FLOAT"),
+            ("docker_running", "FLOAT"), ("docker_total", "FLOAT"),
+            ("containers_json", "JSONB"), ("traffic_json", "JSONB"), ("top_processes_json", "JSONB"),
+        ]
+        for tables in [["host_metric_snapshots"], ["host_metric_rollup_1m", "host_metric_rollup_5m", "host_metric_rollup_10m"]]:
+            for col, typ in snap_cols:
+                if typ == "JSONB" and tables != ["host_metric_snapshots"]:
+                    continue
+                for table in tables:
+                    conn.execute(text(f"""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_name = '{table}' AND column_name = '{col}'
+                            ) THEN
+                                ALTER TABLE {table} ADD COLUMN {col} {typ};
+                            END IF;
+                        END $$;
+                    """))
+
+        # traffic_json for rollup tables
+        for table in ["host_metric_rollup_1m", "host_metric_rollup_5m", "host_metric_rollup_10m"]:
+            conn.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = '{table}' AND column_name = 'traffic_json'
+                    ) THEN
+                        ALTER TABLE {table} ADD COLUMN traffic_json JSONB;
+                    END IF;
+                END $$;
+            """))
+
+        # disk_io_json for all metric tables
+        for table in ["host_metric_snapshots", "host_metric_rollup_1m", "host_metric_rollup_5m", "host_metric_rollup_10m"]:
+            conn.execute(text(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = '{table}' AND column_name = 'disk_io_json'
+                    ) THEN
+                        ALTER TABLE {table} ADD COLUMN disk_io_json JSONB;
+                    END IF;
+                END $$;
+            """))
+
+        # cpu_ticks_json for raw snapshots only
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'host_metric_snapshots' AND column_name = 'cpu_ticks_json'
+                ) THEN
+                    ALTER TABLE host_metric_snapshots ADD COLUMN cpu_ticks_json JSONB;
+                END IF;
+            END $$;
+        """))
+
+        # sshsessions_json
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'host_metric_snapshots' AND column_name = 'sshsessions_json'
+                ) THEN
+                    ALTER TABLE host_metric_snapshots ADD COLUMN sshsessions_json JSONB;
+                END IF;
+            END $$;
+        """))
+
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_uptime_checks_monitor_checked
+            ON uptime_checks (monitor_id, checked_at);
+        """))
+
         conn.commit()
 
 

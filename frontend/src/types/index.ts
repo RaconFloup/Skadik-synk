@@ -195,12 +195,28 @@ export interface UptimeCheck {
   checked_at: string
 }
 
+export interface HourlyStat {
+  hour: number
+  up: number
+  total: number
+}
+
+export interface DayStat {
+  date: string
+  up: number
+  down: number
+  total: number
+  avg_response_ms: number | null
+  hourly: HourlyStat[]
+}
+
 export interface UptimeMonitorWithStatus {
   monitor: UptimeMonitor
   last_check: UptimeCheck | null
   recent_checks: UptimeCheck[]
   uptime_24h: number | null
   uptime_7d: number | null
+  daily_stats: DayStat[]
 }
 
 export interface TelegramTestTokenResponse {
@@ -241,6 +257,31 @@ export interface MetricSnapshot {
   disk: number | null
   disk_used: string | null
   disk_total: string | null
+  load_1m: number | null
+  load_5m: number | null
+  load_15m: number | null
+  swap: number | null
+  swap_used: number | null
+  swap_total: number | null
+  diskio_read: number | null
+  diskio_write: number | null
+  net_established: number | null
+  net_time_wait: number | null
+  docker_running: number | null
+  docker_total: number | null
+  traffic_speed?: {
+    name: string
+    rxBytesPerSec: number
+    txBytesPerSec: number
+  }[]
+  diskio_speed?: {
+    readMbPerSec: number
+    writeMbPerSec: number
+    readIops: number
+    writeIops: number
+    utilizationPercent: number
+    iopsInProgress: number
+  }
 }
 
 export interface HostMetrics {
@@ -279,15 +320,69 @@ export interface HostMetrics {
     kernel: string
     os: string
   }
+  load?: {
+    [key: string]: number
+  }
+  swap?: {
+    percent: number
+    usedGiB: number
+    totalGiB: number
+  }
+  diskio?: {
+    readMb: number
+    writeMb: number
+    readMbPerSec?: number
+    writeMbPerSec?: number
+    readIops?: number
+    writeIops?: number
+    utilizationPercent?: number
+    iopsInProgress?: number
+  }
+  netstat?: {
+    established: number
+    timeWait: number
+  }
+  docker?: {
+    running: number
+    total: number
+    containers?: {
+      name: string
+      status: string
+      state: string
+      health?: string | null
+    }[]
+  }
+  traffic?: {
+    name: string
+    rxBytes: number
+    txBytes: number
+  }[]
+  traffic_speed?: {
+    name: string
+    rxBytesPerSec: number
+    txBytesPerSec: number
+  }[]
   processes?: {
     total: number
     running: number
     top: {
-      pid: string
       user: string
       cpu: string
       mem: string
       command: string
+    }[]
+  }
+  sshsessions?: {
+    users: {
+      user: string
+      terminal: string
+      host: string
+    }[]
+    total: number
+    connections: {
+      ip: string
+      monitor?: boolean
+      direction: 'in' | 'out'
     }[]
   }
 }

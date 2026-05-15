@@ -48,9 +48,25 @@ class UptimeCheckResponse(BaseModel):
         from_attributes = True
 
 
+class HourlyStat(BaseModel):
+    hour: int
+    up: int
+    total: int
+
+
+class DayStat(BaseModel):
+    date: str
+    up: int
+    down: int
+    total: int
+    avg_response_ms: Optional[float] = None
+    hourly: List[HourlyStat] = []
+
+
 class UptimeMonitorWithStatus(BaseModel):
     monitor: UptimeMonitorResponse
     last_check: Optional[UptimeCheckResponse] = None
     recent_checks: List[UptimeCheckResponse] = []
     uptime_24h: Optional[float] = None
     uptime_7d: Optional[float] = None
+    daily_stats: List[DayStat] = []

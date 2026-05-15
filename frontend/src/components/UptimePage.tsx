@@ -35,7 +35,7 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
     if (!el) return
     const resize = () => {
       const w = el.clientWidth
-      const bars = Math.max(8, Math.floor((w + 1) / 7))
+      const bars = Math.max(8, Math.floor((w + 1) / 5))
       setMaxBars(bars)
     }
     resize()
@@ -44,7 +44,7 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
     return () => ro.disconnect()
   }, [])
 
-  const items: { id: string; color: string; title: string }[] = []
+  const items: { id: string; color: string; title: string; cls: string }[] = []
   let consecutiveFails = 0
   let prevMs: number | null = null
   const expectedMs = (interval || 60) * 1000
@@ -59,8 +59,9 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
           const gapMs2 = prevMs + expectedMs * (n + 1)
           items.push({
             id: `gap-${c.id}-${n}`,
-            color: 'bg-muted-foreground/20',
+            color: 'bg-muted-foreground/15',
             title: `Мониторинг отключён\n${new Date(gapMs2).toLocaleString('ru-RU')}`,
+            cls: 'h-2 self-center rounded-full',
           })
         }
       }
@@ -71,14 +72,15 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
       consecutiveFails++
     }
     const color = c.is_up
-      ? 'bg-emerald-500/60'
+      ? 'bar-green'
       : consecutiveFails >= retryCount
-        ? 'bg-red-500/60'
-        : 'bg-amber-500/40'
+        ? 'bar-red'
+        : 'bar-amber'
     items.push({
       id: c.id,
       color,
       title: `${c.is_up ? '✓ Доступен' : '✗ Ошибка'}${c.response_time_ms ? ` (${c.response_time_ms}ms)` : ''}\n${c.error || ''}\n${new Date(c.checked_at).toLocaleString('ru-RU')}`,
+      cls: 'h-7 rounded-full',
     })
     prevMs = ctMs
   }
@@ -93,8 +95,9 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
         const t = prevMs + expectedMs * (n + 1)
         items.push({
           id: `gap-end-${n}`,
-          color: 'bg-muted-foreground/20',
+          color: 'bg-muted-foreground/15',
           title: `Мониторинг отключён\n${new Date(t).toLocaleString('ru-RU')}`,
+          cls: 'h-2 self-center rounded-full',
         })
       }
     }
@@ -105,19 +108,53 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
   const placeholders = totalBars - visible.length
 
   return (
-    <div ref={ref} className="flex items-end gap-px h-8">
-      <style>{`@keyframes barIn{from{opacity:0;transform:scaleY(0)}to{opacity:1;transform:scaleY(1)}}`}</style>
+      <div ref={ref} className="flex items-end gap-0.5 h-8">
+      <style>{`
+        @keyframes dropIn {
+          0% { transform: translateY(-24px) scaleY(0.15); opacity: 0; }
+          55% { transform: translateY(2px) scaleY(1.06); opacity: 1; }
+          75% { transform: translateY(-1px) scaleY(0.96); }
+          90% { transform: translateY(0.5px) scaleY(1.02); }
+          100% { transform: translateY(0) scaleY(1); opacity: 1; }
+        }
+        @keyframes fogPass {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 1; }
+        }
+        @keyframes redPulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes amberGlow {
+          0%, 100% { opacity: 0.5; filter: brightness(0.7); }
+          50% { opacity: 0.85; filter: brightness(1.4); }
+        }
+        .bar-green {
+          background: rgba(52,211,153,0.6);
+          box-shadow: 0 0 5px rgba(52,211,153,0.15);
+          animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), fogPass 20s ease-in-out calc(var(--bar-offset) * -1s) infinite;
+        }
+        .bar-red {
+          background: rgba(239,68,68,0.6);
+          animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), redPulse 0.4s ease-in-out 0.5s infinite;
+        }
+        .bar-amber {
+          background: linear-gradient(180deg, rgba(251,191,36,0.2), rgba(251,191,36,0.55));
+          animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), amberGlow 2.5s ease-in-out 0.5s infinite;
+        }
+        .gap-stripe{background:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.06) 2px,rgba(255,255,255,0.06) 4px)}
+      `}</style>
       {Array.from({ length: placeholders }).map((_, idx) => (
         <div
           key={`p-${idx}`}
-          className={`w-1.5 flex-none h-5 rounded-sm bg-muted-foreground/10`}
+          className="w-[3px] flex-none h-7 rounded-full bg-muted-foreground/10"
         />
       ))}
-      {visible.map((item) => (
+      {visible.map((item, idx) => (
         <div
           key={item.id}
-          className={'w-1.5 flex-none h-5 rounded-sm cursor-pointer transition-opacity hover:opacity-80 ' + item.color}
-          style={{ animation: 'barIn 0.3s ease-out' }}
+          className={'w-[3px] flex-none cursor-pointer transition-all hover:opacity-80 ' + item.cls + ' ' + item.color + (item.id.startsWith('gap') ? ' gap-stripe' : '')}
+          style={{ '--bar-offset': (placeholders + idx) * 0.3 } as React.CSSProperties}
           title={item.title}
         />
       ))}
@@ -282,8 +319,8 @@ export function UptimePage() {
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                  {group.items.map(({ monitor, last_check, recent_checks, uptime_24h, uptime_7d }) => {
-                    const status = getStatus({ monitor, last_check, recent_checks, uptime_24h, uptime_7d }, retryCount)
+                  {group.items.map(({ monitor, last_check, recent_checks, uptime_24h, uptime_7d, daily_stats }) => {
+                    const status = getStatus({ monitor, last_check, recent_checks, uptime_24h, uptime_7d, daily_stats: daily_stats || [] }, retryCount)
                     const statusColor = status === 'up' ? 'bg-emerald-500' : status === 'down' ? 'bg-red-500' : status === 'pending' ? 'bg-amber-500' : 'bg-muted-foreground'
                     const downtime = recent_checks.filter(c => !c.is_up).length
                     return (
@@ -414,54 +451,27 @@ export function UptimePage() {
                         </div>
 
                         {expandedId === monitor.id && (() => {
-                          const daysMap = new Map<string, { dateKey: string; up: number; down: number; total: number; avgPing: number; pingCount: number; checks: { is_up: boolean; checked_at: string; response_time_ms?: number | null; error?: string | null; id: string }[] }>()
-                          for (const c of recent_checks) {
-                            const day = new Date(c.checked_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
-                            const dateKey = new Date(c.checked_at).toISOString().split('T')[0]
-                            let entry = daysMap.get(day)
-                            if (!entry) {
-                              entry = { dateKey, up: 0, down: 0, total: 0, avgPing: 0, pingCount: 0, checks: [] }
-                              daysMap.set(day, entry)
-                            }
-                            entry.total++
-                            if (c.is_up) entry.up++
-                            else entry.down++
-                            if (c.response_time_ms != null) {
-                              entry.avgPing += c.response_time_ms
-                              entry.pingCount++
-                            }
-                            entry.checks.push(c)
-                          }
-                          for (const entry of daysMap.values()) {
-                            if (entry.pingCount > 0) entry.avgPing = Math.round(entry.avgPing / entry.pingCount)
-                            else entry.avgPing = 0
-                          }
-
-                          const days = Array.from(daysMap.entries()).reverse()
+                          const ds = daily_stats || []
+                          const days = ds.slice().reverse()
 
                           return (
                             <div className="border-t border-border/40 px-4 py-3 space-y-4">
                               <div>
                                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Статистика по дням</div>
                                 <div className="space-y-2">
-                                  {days.map(([day, stats]) => {
-                                    const checks = stats.checks.sort((a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime())
-
-                                    const dayStart = new Date(checks[0].checked_at)
-                                    dayStart.setHours(0, 0, 0, 0)
-
-                                    const segMs = 3600000
-
+                                  {days.map((stat) => {
+                                    const dayDate = new Date(stat.date + 'T00:00:00')
                                     const now = new Date()
-                                    const isToday = dayStart.toDateString() === now.toDateString()
+                                    const isToday = dayDate.toDateString() === now.toDateString()
                                     const currentHour = now.getHours()
+                                    const dayLabel = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
 
                                     const hourLabels = [
                                       { label: '00', position: 0 },
                                       { label: '06', position: 25 },
                                       { label: '12', position: 50 },
                                       { label: '18', position: 75 },
-                                    ].filter(hl => !isToday || hl.label < `${currentHour}`.padStart(2, '0'))
+                                    ].filter(hl => !isToday || parseInt(hl.label) < currentHour)
 
                                     const segments: { cls: string; title: string }[] = []
                                     for (let si = 0; si < 24; si++) {
@@ -469,50 +479,28 @@ export function UptimePage() {
                                         segments.push({ cls: 'bg-transparent', title: '' })
                                         continue
                                       }
-                                      const segStart = dayStart.getTime() + segMs * si
-                                      const segEnd = segStart + segMs
-                                      const inSeg = checks.filter((c) => {
-                                        const ct = new Date(c.checked_at).getTime()
-                                        return ct >= segStart && ct < segEnd
-                                      })
-                                      if (inSeg.length === 0) {
+                                      const h = stat.hourly.find(h => h.hour === si)
+                                      if (!h || h.total === 0) {
                                         segments.push({ cls: 'bg-muted-foreground/15', title: 'Нет данных' })
                                       } else {
-                                        const segUpCount = inSeg.filter((c) => c.is_up).length
-                                        const pct = segUpCount / inSeg.length
-                                        const lastErr = inSeg.filter(c => !c.is_up && c.error).map(c => c.error).pop()
-
-                                        let cls: string
-                                        if (pct === 1) {
-                                          const avg = inSeg.filter(c => c.response_time_ms != null)
-                                          const segAvg = avg.length > 0 ? Math.round(avg.reduce((s, c) => s + c.response_time_ms!, 0) / avg.length) : 0
-                                          if (segAvg < 50) cls = 'bg-emerald-500/80'
-                                          else if (segAvg < 100) cls = 'bg-emerald-500/60'
-                                          else if (segAvg < 200) cls = 'bg-emerald-500/45'
-                                          else cls = 'bg-emerald-500/30'
-                                        } else if (pct >= 0.5) {
-                                          cls = 'bg-amber-500/40'
-                                        } else {
-                                          cls = 'bg-red-500/60'
-                                        }
-
-                                        segments.push({
-                                          cls,
-                                          title: `✓ ${segUpCount}/${inSeg.length}\n${lastErr ? `✗ ${lastErr}` : ''}\n${new Date(segStart).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`,
-                                        })
+                                        const pct = h.up / h.total
+                                        const cls = pct === 1 ? 'bg-emerald-500/60'
+                                          : pct >= 0.5 ? 'bg-amber-500/40'
+                                          : 'bg-red-500/60'
+                                        segments.push({ cls, title: `✓ ${h.up}/${h.total}\n${new Date(dayDate.getTime() + si * 3600000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` })
                                       }
                                     }
 
-                                    const isSelected = incidentDay === stats.dateKey
+                                    const isSelected = incidentDay === stat.date
 
                                     return (
                                       <div
-                                        key={day}
+                                        key={stat.date}
                                         className={`cursor-pointer rounded px-1 -mx-1 transition-colors hover:bg-accent/20 ${isSelected ? 'bg-accent/30' : ''}`}
-                                        onClick={() => setIncidentDay(incidentDay === stats.dateKey ? null : stats.dateKey)}
+                                        onClick={() => setIncidentDay(incidentDay === stat.date ? null : stat.date)}
                                       >
                                         <div className="flex items-center gap-2 text-[11px]">
-                                          <span className="w-16 shrink-0 text-muted-foreground/60">{day}</span>
+                                          <span className="w-16 shrink-0 text-muted-foreground/60">{dayLabel}</span>
                                           <div className="flex flex-col flex-1 min-w-0 gap-0">
                                             <div className="flex gap-px h-3 items-stretch rounded-sm overflow-hidden">
                                               {segments.map((seg, si) => (
@@ -529,15 +517,15 @@ export function UptimePage() {
                                               </div>
                                             )}
                                           </div>
-                                          <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stats.up}</span>
-                                          {stats.down > 0 ? (
-                                            <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-red-400">{stats.down}</span>
+                                          <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-emerald-400">{stat.up}</span>
+                                          {stat.down > 0 ? (
+                                            <span className="w-8 text-right shrink-0 font-semibold tabular-nums text-red-400">{stat.down}</span>
                                           ) : (
                                             <span className="w-8 text-right shrink-0 text-muted-foreground/30">—</span>
                                           )}
-                                          <span className="w-8 text-right shrink-0 text-muted-foreground/40">{stats.total}</span>
+                                          <span className="w-8 text-right shrink-0 text-muted-foreground/40">{stat.total}</span>
                                           <span className="w-12 text-right shrink-0 tabular-nums text-muted-foreground/60">
-                                            {stats.pingCount > 0 ? `${stats.avgPing}ms` : '—'}
+                                            {stat.avg_response_ms != null ? `${stat.avg_response_ms}ms` : '—'}
                                           </span>
                                         </div>
                                       </div>
@@ -550,20 +538,13 @@ export function UptimePage() {
                                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Тепловая карта</div>
                                 {(() => {
                                   const dayPct = new Map<string, { pct: number; total: number }>()
-                                  for (const c of recent_checks) {
-                                    const d = new Date(c.checked_at).toISOString().split('T')[0]
-                                    if (!dayPct.has(d)) dayPct.set(d, { pct: 0, total: 0 })
-                                    const e = dayPct.get(d)!
-                                    e.total++
-                                    if (c.is_up) e.pct++
-                                  }
-                                  for (const e of dayPct.values()) {
-                                    if (e.total > 0) e.pct = e.pct / e.total
+                                  for (const d of ds) {
+                                    dayPct.set(d.date, { pct: d.total > 0 ? d.up / d.total : 0, total: d.total })
                                   }
                                   const dates = Array.from(dayPct.keys()).sort()
                                   if (dates.length === 0) return <div className="text-[11px] text-muted-foreground/40">Нет данных</div>
 
-                                  const firstDate = new Date(dates[0])
+                                  const firstDate = new Date(dates[0] + 'T00:00:00')
                                   firstDate.setDate(firstDate.getDate() - firstDate.getDay())
                                   const lastDate = new Date()
                                   const weeks: { dates: string[]; month: string }[] = []
