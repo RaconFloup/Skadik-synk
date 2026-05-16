@@ -61,7 +61,7 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
             id: `gap-${c.id}-${n}`,
             color: 'bg-muted-foreground/15',
             title: `Мониторинг отключён\n${new Date(gapMs2).toLocaleString('ru-RU')}`,
-            cls: 'h-2 self-center rounded-full',
+            cls: 'h-7 rounded-full',
           })
         }
       }
@@ -97,7 +97,7 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
           id: `gap-end-${n}`,
           color: 'bg-muted-foreground/15',
           title: `Мониторинг отключён\n${new Date(t).toLocaleString('ru-RU')}`,
-          cls: 'h-2 self-center rounded-full',
+          cls: 'h-7 rounded-full',
         })
       }
     }
@@ -117,44 +117,45 @@ function Timeline({ checks, retryCount, interval = 60 }: { checks: { id: string;
           90% { transform: translateY(0.5px) scaleY(1.02); }
           100% { transform: translateY(0) scaleY(1); opacity: 1; }
         }
-        @keyframes fogPass {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 1; }
-        }
         @keyframes redPulse {
-          0%, 100% { opacity: 0.5; }
+          0%, 100% { opacity: 0.4; }
           50% { opacity: 1; }
         }
         @keyframes amberGlow {
-          0%, 100% { opacity: 0.5; filter: brightness(0.7); }
-          50% { opacity: 0.85; filter: brightness(1.4); }
+          0%, 100% { opacity: 0.45; filter: brightness(0.7); }
+          50% { opacity: 0.9; filter: brightness(1.3); }
         }
         .bar-green {
-          background: rgba(52,211,153,0.6);
-          box-shadow: 0 0 5px rgba(52,211,153,0.15);
-          animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), fogPass 20s ease-in-out calc(var(--bar-offset) * -1s) infinite;
+          background: rgb(30,150,105);
+          outline: 1px solid rgba(52,211,153,0.6);
+          outline-offset: -0.5px;
+          animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1);
         }
         .bar-red {
-          background: rgba(239,68,68,0.6);
+          background: rgb(170,48,48);
+          outline: 1px solid rgba(239,68,68,0.6);
+          outline-offset: -0.5px;
           animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), redPulse 0.4s ease-in-out 0.5s infinite;
         }
         .bar-amber {
-          background: linear-gradient(180deg, rgba(251,191,36,0.2), rgba(251,191,36,0.55));
+          background: rgb(190,145,27);
+          outline: 1px solid rgba(251,191,36,0.6);
+          outline-offset: -0.5px;
           animation: dropIn 0.5s cubic-bezier(0.22,0.68,0.35,1.1), amberGlow 2.5s ease-in-out 0.5s infinite;
         }
-        .gap-stripe{background:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.06) 2px,rgba(255,255,255,0.06) 4px)}
+        .gap-stripe{background:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.08) 2px,rgba(255,255,255,0.08) 4px),rgb(10,10,22);outline:1px solid rgba(255,255,255,0.06);outline-offset:-0.5px}
+        .bar-placeholder{background:rgb(20,20,35);opacity:0.4;outline:1px solid rgba(255,255,255,0.06);outline-offset:-0.5px}
       `}</style>
       {Array.from({ length: placeholders }).map((_, idx) => (
         <div
           key={`p-${idx}`}
-          className="w-[3px] flex-none h-7 rounded-full bg-muted-foreground/10"
+          className="w-[3px] flex-none h-7 rounded-full bar-placeholder"
         />
       ))}
-      {visible.map((item, idx) => (
+      {visible.map((item) => (
         <div
           key={item.id}
           className={'w-[3px] flex-none cursor-pointer transition-all hover:opacity-80 ' + item.cls + ' ' + item.color + (item.id.startsWith('gap') ? ' gap-stripe' : '')}
-          style={{ '--bar-offset': (placeholders + idx) * 0.3 } as React.CSSProperties}
           title={item.title}
         />
       ))}
@@ -460,22 +461,20 @@ export function UptimePage() {
                                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-2">Статистика по дням</div>
                                 <div className="space-y-2">
                                   {days.map((stat) => {
-                                    const dayDate = new Date(stat.date + 'T00:00:00')
                                     const now = new Date()
-                                    const isToday = dayDate.toDateString() === now.toDateString()
+                                    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+                                    const isToday = stat.date === todayStr
                                     const currentHour = now.getHours()
-                                    const dayLabel = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
-
+                                    const dayLabel = new Date(stat.date + 'T00:00:00').toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
                                     const hourLabels = [
                                       { label: '00', position: 0 },
                                       { label: '06', position: 25 },
                                       { label: '12', position: 50 },
                                       { label: '18', position: 75 },
                                     ].filter(hl => !isToday || parseInt(hl.label) < currentHour)
-
                                     const segments: { cls: string; title: string }[] = []
                                     for (let si = 0; si < 24; si++) {
-                                      if (isToday && si >= currentHour) {
+                                      if (isToday && si > currentHour) {
                                         segments.push({ cls: 'bg-transparent', title: '' })
                                         continue
                                       }
@@ -487,7 +486,7 @@ export function UptimePage() {
                                         const cls = pct === 1 ? 'bg-emerald-500/60'
                                           : pct >= 0.5 ? 'bg-amber-500/40'
                                           : 'bg-red-500/60'
-                                        segments.push({ cls, title: `✓ ${h.up}/${h.total}\n${new Date(dayDate.getTime() + si * 3600000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` })
+                                        segments.push({ cls, title: `✓ ${h.up}/${h.total}\n${String(si).padStart(2, '0')}:00` })
                                       }
                                     }
 

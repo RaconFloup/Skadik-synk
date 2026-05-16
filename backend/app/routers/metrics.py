@@ -14,10 +14,6 @@ from datetime import datetime, timedelta
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
 
-def get_router():
-    return router
-
-
 def _select_model(minutes: int):
     if minutes <= 10:
         return HostMetricSnapshot

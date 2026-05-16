@@ -10,6 +10,7 @@ Base = declarative_base()
 def get_db():
     db = SessionLocal()
     try:
+        db.execute(text("SET TIME ZONE 'Europe/Moscow'"))
         yield db
     finally:
         db.close()
